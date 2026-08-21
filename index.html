@@ -219,13 +219,13 @@
 
   <details>
     <summary>How the battle plays out</summary>
-    <p><b>Set your lineup, then watch it play.</b> Initiative is fixed before battle. Each side is numbered from its front line (closest to the enemy) to its back line; pieces on the same file use the lower rank first. The badges show this order during setup. <b>The house plays White</b> and takes the first slot, then the sides alternate: house #1, yours #1, house #2, yours #2, and so on. The schedule locks when battle starts, so moves and captures never reorder it — the same setup always plays the same way.</p>
-    <p>Each surviving piece gets one action slot per round; a frozen piece skips its slot. If no piece moves for a full round, the position is dead and the house wins. On its slot, every piece follows these rules in order:</p>
-    <p><b>1. Strike.</b> If it has an allowed capture, it takes the most valuable target in range. Pieces use their full chess range — for example, a rook can strike anywhere along an open file or rank.</p>
-    <p><b>2. Creep.</b> Otherwise, it looks for a safe move that gets it closer to the nearest enemy. Sliding pieces creep one square; knights use their usual leap.</p>
-    <p><b>3. Never trade down.</b> A destination is unsafe if it is defended by an equal-or-cheaper enemy, or if the moving piece would be attacked and left undefended. A capture can override that caution when the target is worth at least as much as the attacker.</p>
-    <p>Under standard rules, a piece that cannot creep safely makes its least-bad legal move — even onto a dangerous square. That forced movement makes baiting possible. Under <b>club rules</b>, pieces may hold instead, and a piece with no safe move is pinned (⊘) until the position changes.</p>
-    <p>Clear every enemy piece within 20 rounds to win. Your score is the total points you spent. Match the displayed par and you've found the cheapest possible answer for the active rules.</p>
+    <p><b>Build your crew; the badges show the script.</b> Initiative is deterministic: each side lines up front-to-back (closest to the enemy first), with the lower rank breaking same-file ties. The house is White and opens, then slots alternate: house #1, yours #1, house #2, yours #2… That schedule freezes at the bell — moving and capturing can’t reshuffle it.</p>
+    <p>Every survivor gets one slot per round; frozen pieces miss theirs. On a slot:</p>
+    <p><b>1. Strike.</b> Take the highest-value allowed capture, using full chess range. Rooks, bishops, and queens reach as far as clear lines allow.</p>
+    <p><b>2. Creep.</b> No strike? Take a safe move toward the nearest enemy. Sliders creep one square; knights leap normally.</p>
+    <p><b>3. Mind the price tag.</b> A square is unsafe if an equal-or-cheaper enemy attacks it, or a pricier enemy attacks it with no ally defending it. A capture is still allowed through danger when its target costs at least as much as the attacker.</p>
+    <p>No safe advance? Standard rules force the least-bad legal move — even into trouble. <b>Club rules</b> let pieces hold; one with no safe move is pinned (⊘) until the position changes.</p>
+    <p>Eliminate every enemy within 20 rounds. A full round with no moves is an instant loss; so is reaching the limit with enemies standing. Your score is points spent. Hit par and you’ve found the cheapest solution under the active rules.</p>
   </details>
 
   <details class="advanced">
