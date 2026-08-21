@@ -97,6 +97,14 @@
     background:linear-gradient(135deg,transparent 44%,var(--signal) 44% 56%,transparent 56%);
     filter:drop-shadow(0 1px 1px rgba(0,0,0,.35));
   }
+  .order{
+    position:absolute;top:2px;left:2px;z-index:2;
+    min-width:16px;height:16px;padding:0 4px;border-radius:8px;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--ink);color:var(--paper);font:bold 10px/1 system-ui,sans-serif;
+    box-shadow:0 1px 2px rgba(0,0,0,.35);
+  }
+  .order.enemy{background:var(--signal)}
   @keyframes pop{0%{transform:scale(.4)}70%{transform:scale(1.15)}100%{transform:scale(1)}}
   .frontier{position:relative}
   .files{display:grid;grid-template-columns:repeat(8,1fr);font-size:10px;color:#7f9c8c;text-align:center;padding-top:4px;letter-spacing:.05em}
@@ -207,11 +215,11 @@
     </div>
   </div>
 
-  <div class="sheet" id="sheet"><span class="lbl">Scoresheet</span><div id="moves">Drag pieces onto your files (or tap to select, tap to place). Tap an enemy piece to see its strike range. The house plays White and moves first.</div></div>
+  <div class="sheet" id="sheet"><span class="lbl">Scoresheet</span><div id="moves">Drag pieces onto your files (or tap to select, tap to place). Number badges show initiative. Tap an enemy piece to see its strike range. The house plays White and moves first.</div></div>
 
   <details>
     <summary>How the battle plays out</summary>
-    <p>Battles run in rounds with a fixed batting order — and <b>the house plays White</b>, so it moves first: their first piece, your first, their second, your second, and so on. The schedule never changes, so you can plan around it. Every piece attempts one action per round; a frozen piece simply does nothing in its slot. If a whole round passes with no piece moving, the position is dead and the house wins. Every piece follows the same three rules, always:</p>
+    <p>Battles run in rounds with a fixed batting order — and <b>the house plays White</b>, so it moves first: their first piece, your first, their second, your second, and so on. Each side is numbered from the front line nearest the opponent to the back, with lower ranks first when pieces share a file. The numbered badges show the order during setup. The schedule is frozen when battle starts, so the same position always plays the same way. Every piece attempts one action per round; a frozen piece simply does nothing in its slot. If a whole round passes with no piece moving, the position is dead and the house wins. Every piece follows the same three rules, always:</p>
     <p><b>1. Strike.</b> If it can capture, it captures the most valuable target in range. Full chess range — a rook strikes down its whole file or rank.</p>
     <p><b>2. Creep.</b> Otherwise it advances one square toward the nearest enemy. Knights leap as normal.</p>
     <p><b>3. Never trade down.</b> A piece refuses to move onto — or capture on — any square defended by a cheaper or equal enemy. A 2-point pawn's diagonal is poison to a 5-point rook. A piece with no safe option must still act — it makes its least-bad move, which is how baiting works. (Enable holds in Advanced settings and trapped pieces will freeze in place instead.)</p>
@@ -266,7 +274,7 @@
       "enemy": [ { "type": "B", "col": 1, "row": 1 }, { "type": "P", "col": 2, "row": 0 }, { "type": "P", "col": 2, "row": 2 } ],
       "modes": {
         "club":   { "par": 5, "solution": [ { "type": "R", "col": 4, "row": 1 } ] },
-        "forced": { "par": 5, "solution": [ { "type": "P", "col": 4, "row": 0 }, { "type": "N", "col": 5, "row": 1 } ] }
+        "forced": { "par": 5, "solution": [ { "type": "R", "col": 4, "row": 1 } ] }
       }
     },
     {
@@ -275,8 +283,8 @@
       "desc": "The rook strikes first and owns its rank.",
       "enemy": [ { "type": "R", "col": 0, "row": 0 }, { "type": "P", "col": 2, "row": 1 }, { "type": "P", "col": 1, "row": 2 } ],
       "modes": {
-        "club":   { "par": 8, "solution": [ { "type": "N", "col": 4, "row": 0 }, { "type": "R", "col": 6, "row": 0 } ] },
-        "forced": { "par": 5, "solution": [ { "type": "B", "col": 4, "row": 0 }, { "type": "P", "col": 5, "row": 1 } ] }
+        "club":   { "par": 5, "solution": [ { "type": "R", "col": 4, "row": 0 } ] },
+        "forced": { "par": 5, "solution": [ { "type": "B", "col": 4, "row": 0 }, { "type": "P", "col": 4, "row": 1 } ] }
       }
     },
     {
@@ -285,8 +293,8 @@
       "desc": "Ten points of royalty. Beat her for less.",
       "enemy": [ { "type": "Q", "col": 1, "row": 1 }, { "type": "P", "col": 3, "row": 1 } ],
       "modes": {
-        "club":   { "par": 7, "solution": [ { "type": "P", "col": 4, "row": 0 }, { "type": "R", "col": 5, "row": 0 } ] },
-        "forced": { "par": 6, "solution": [ { "type": "P", "col": 4, "row": 0 }, { "type": "P", "col": 4, "row": 1 }, { "type": "P", "col": 5, "row": 0 } ] }
+        "club":   { "par": 7, "solution": [ { "type": "R", "col": 4, "row": 1 }, { "type": "P", "col": 4, "row": 2 } ] },
+        "forced": { "par": 7, "solution": [ { "type": "R", "col": 4, "row": 1 }, { "type": "P", "col": 4, "row": 2 } ] }
       }
     },
     {
@@ -302,15 +310,16 @@
   ]
 }
 </script>
+<script src="chessmatic-engine.js"></script>
 <script>
 /* ================= engine (data-driven; orientation comes from puzzleData) ================= */
-let COLS=8, ROWS=3, COST=null, DIRS=null, DEP_MIN=4, DEP_MAX=7;
+let COLS=8, ROWS=3, COST=null, DEP_MIN=4, DEP_MAX=7, ENGINE=null;
 let PUZZLES=[];
 function applyData(data){
   COLS=data.board.cols; ROWS=data.board.rows;
   COST=data.pieceCosts;
-  DIRS={player:data.sides.player.pawnDir, enemy:data.sides.enemy.pawnDir};
   DEP_MIN=data.sides.player.deploy[0]; DEP_MAX=data.sides.player.deploy[1];
+  ENGINE=ChessmaticEngine.createEngine(data);
   PUZZLES=data.puzzles.map(p=>({name:p.name,desc:p.desc,enemy:p.enemy,
     par:p.modes.club.par,sol:p.modes.club.solution,
     parF:p.modes.forced.par,solF:p.modes.forced.solution}));
@@ -320,116 +329,8 @@ const deployLabel=()=>'abcdefgh'[DEP_MIN]+'\u2013'+'abcdefgh'[DEP_MAX];
 const GLYPH={P:'♟',N:'♞',B:'♝',R:'♜',Q:'♛'};
 const NAME={P:'pawn',N:'knight',B:'bishop',R:'rook',Q:'queen'};
 
-const at=(ps,c,r)=>ps.find(p=>p.alive&&p.col===c&&p.row===r);
-const inB=(c,r)=>c>=0&&c<COLS&&r>=0&&r<ROWS;
-
-function slideMoves(p,ps,dirs){const out=[];for(const[dc,dr]of dirs){let c=p.col+dc,r=p.row+dr;
-  while(inB(c,r)){const o=at(ps,c,r);if(o){if(o.side!==p.side)out.push({c,r,cap:o});break}out.push({c,r,cap:null});c+=dc;r+=dr}}return out}
-
-function legalMoves(p,ps){const out=[];const push=(c,r)=>{if(!inB(c,r))return;const o=at(ps,c,r);if(o&&o.side===p.side)return;out.push({c,r,cap:o||null})};
-  const dir=DIRS[p.side];
-  switch(p.type){
-    case 'P':{if(inB(p.col+dir,p.row)&&!at(ps,p.col+dir,p.row))out.push({c:p.col+dir,r:p.row,cap:null});
-      for(const dr of[-1,1]){const c=p.col+dir,r=p.row+dr;if(!inB(c,r))continue;const o=at(ps,c,r);if(o&&o.side!==p.side)out.push({c,r,cap:o})}return out}
-    case 'N':{for(const[dc,dr]of[[1,2],[2,1],[2,-1],[1,-2],[-1,-2],[-2,-1],[-2,1],[-1,2]])push(p.col+dc,p.row+dr);return out}
-    case 'B':return slideMoves(p,ps,[[1,1],[1,-1],[-1,1],[-1,-1]]);
-    case 'R':return slideMoves(p,ps,[[1,0],[-1,0],[0,1],[0,-1]]);
-    case 'Q':return slideMoves(p,ps,[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]);
-  }return out}
-
-function attacksSq(e,c,r,occ){
-  const dc=c-e.col,dr=r-e.row;
-  switch(e.type){
-    case 'P':{return dc===DIRS[e.side]&&Math.abs(dr)===1}
-    case 'N':return(Math.abs(dc)===1&&Math.abs(dr)===2)||(Math.abs(dc)===2&&Math.abs(dr)===1);
-    default:{
-      const diag=Math.abs(dc)===Math.abs(dr)&&dc!==0,ortho=(dc===0)!==(dr===0);
-      const ok=e.type==='B'?diag:e.type==='R'?ortho:(diag||ortho);
-      if(!ok)return false;
-      const sc=Math.sign(dc),sr=Math.sign(dr),n=Math.max(Math.abs(dc),Math.abs(dr));
-      for(let i=1;i<n;i++)if(occ(e.col+sc*i,e.row+sr*i))return false;
-      return true;
-    }
-  }
-}
-// Unsafe: attacked by cheaper/equal enemy (trade-down), or by ANY enemy while undefended (hanging).
-function unsafeSquare(p,c,r,ps,ignore){
-  const occ=(cc,rr)=>ps.some(q=>q.alive&&q!==p&&q!==ignore&&q.col===cc&&q.row===rr)||(cc===c&&rr===r);
-  let expensive=false;
-  for(const e of ps){
-    if(!e.alive||e===p||e===ignore||e.side===p.side)continue;
-    if(!attacksSq(e,c,r,occ))continue;
-    if(COST[e.type]<=COST[p.type])return true;
-    expensive=true;
-  }
-  if(!expensive)return false;
-  for(const q of ps){
-    if(!q.alive||q===p||q===ignore||q.side!==p.side)continue;
-    if(attacksSq(q,c,r,occ))return false;
-  }
-  return true;
-}
-
-function nearestEnemyDist(c,r,ps,side){let b=Infinity;
-  for(const e of ps)if(e.alive&&e.side!==side)b=Math.min(b,Math.abs(e.col-c)+Math.abs(e.row-r));return b}
-
 let FORCED=true; // default: forced march — no piece may stand still. Toggle in Advanced settings.
-function forcedFallback(p,ps,moves){
-  const sc=moves.map(m=>({m,unsafe:unsafeSquare(p,m.c,m.r,ps,m.cap)?1:0,d:nearestEnemyDist(m.c,m.r,ps,p.side),step:Math.abs(m.c-p.col)+Math.abs(m.r-p.row)}));
-  sc.sort((a,b)=>(a.unsafe-b.unsafe)||(a.d-b.d)||(a.step-b.step)||(a.m.c-b.m.c)||(a.m.r-b.m.r));
-  return sc[0].m;
-}
-// Pure: what would this piece do right now? {move} | {pinned:true} | {hold:true}
-function chooseAction(p,ps){
-  const moves=legalMoves(p,ps);if(!moves.length)return{pinned:true};
-  const caps=moves.filter(m=>m.cap).filter(m=>COST[m.cap.type]>=COST[p.type]||!unsafeSquare(p,m.c,m.r,ps,m.cap));
-  if(caps.length){caps.sort((a,b)=>(COST[b.cap.type]-COST[a.cap.type])||(a.c-b.c)||(a.r-b.r));return{move:caps[0]}}
-  const cur=nearestEnemyDist(p.col,p.row,ps,p.side);
-  let pool=(p.type==='N'||p.type==='P')?moves:moves.filter(m=>Math.max(Math.abs(m.c-p.col),Math.abs(m.r-p.row))===1);
-  pool=pool.filter(m=>!unsafeSquare(p,m.c,m.r,ps));
-  if(!pool.length)return FORCED?{move:forcedFallback(p,ps,moves)}:{pinned:true};
-  const sc=pool.map(m=>({m,d:nearestEnemyDist(m.c,m.r,ps,p.side),step:Math.abs(m.c-p.col)+Math.abs(m.r-p.row)}));
-  sc.sort((a,b)=>(a.d-b.d)||(a.step-b.step)||(a.m.c-b.m.c)||(a.m.r-b.m.r));
-  if(sc[0].d<cur)return{move:sc[0].m};
-  return FORCED?{move:forcedFallback(p,ps,moves)}:{hold:true};
-}
-function actPiece(p,ps){
-  const a=chooseAction(p,ps);
-  if(!a.move)return a; // pass: {pinned} or {hold}
-  const ch=a.move;
-  const ev={pieceId:p.id,type:p.type,side:p.side,from:{c:p.col,r:p.row},to:{c:ch.c,r:ch.r},captured:ch.cap?{id:ch.cap.id,type:ch.cap.type}:null};
-  if(ch.cap)ch.cap.alive=false;
-  p.col=ch.c;p.row=ch.r;return ev}
-
-function status(ps){
-  const pa=ps.filter(p=>p.alive&&p.side==='player'),ea=ps.filter(p=>p.alive&&p.side==='enemy');
-  if(!ea.length)return 'win';if(!pa.length)return 'loss';return null}
-
-function simulate(placements,enemySetup){
-  let id=0;
-  const pl=placements.map(x=>({...x,side:'player',alive:true,id:'p'+(id++)}));
-  const en=enemySetup.map(x=>({...x,side:'enemy',alive:true,id:'e'+(id++)}));
-  const ps=[...pl,...en];
-  const initiative=[];
-  for(let i=0;i<Math.max(pl.length,en.length);i++){
-    if(en[i])initiative.push(en[i].id);   // the house moves first
-    if(pl[i])initiative.push(pl[i].id);
-  }
-  const events=[];const ROUND_LIMIT=20;
-  for(let round=0;round<ROUND_LIMIT;round++){
-    let actions=0;
-    for(const pid of initiative){
-      const p=ps.find(q=>q.id===pid);
-      if(!p||!p.alive)continue;
-      const res=actPiece(p,ps);
-      if(res.pieceId){actions++;events.push({round,side:p.side,ev:res})}
-      else events.push({round,side:p.side,ev:null,pinned:!!res.pinned,pid:p.id,ptype:p.type,at:{c:p.col,r:p.row}});
-      const result=status(ps);
-      if(result)return{result,events};
-    }
-    if(!actions)return{result:'loss',events,stalemate:true};
-  }
-  return{result:'loss',events,timeout:true}}
+const at=(ps,c,r)=>ENGINE.at(ps,c,r);
 
 /* ================= puzzles (pars verified by brute-force solver) ================= */
 /* puzzles load from puzzleData JSON (or chessmatic-puzzles.json when hosted) */
@@ -478,26 +379,19 @@ function refreshTray(){
 
 function piecesForRender(){
   if(playing||mode==='done')return livePieces;
-  return [
-    ...placed.map((p,i)=>({...p,side:'player',alive:true,id:'p'+i})),
-    ...PUZZLES[cur].enemy.map((p,i)=>({...p,side:'enemy',alive:true,id:'e'+i})),
-  ];
+  const player=placed.map((p,i)=>({...p,side:'player',alive:true,id:'p'+i}));
+  const enemy=PUZZLES[cur].enemy.map((p,i)=>({...p,side:'enemy',alive:true,id:'e'+i}));
+  ENGINE.initiativeOrder(player,'player').forEach((p,i)=>p.order=i+1);
+  ENGINE.initiativeOrder(enemy,'enemy').forEach((p,i)=>p.order=i+1);
+  return [...player,...enemy];
 }
 
 let threatFor=null; // piece id whose threat range is shown
-function threatSquares(piece,ps){
-  const out=new Set();
-  // capture range = where this piece could strike (ignore trade-down rule for the preview: show raw danger)
-  if(piece.type==='P'){const dir=piece.side==='player'?1:-1;
-    for(const dr of[-1,1]){const c=piece.col+dir,r=piece.row+dr;if(inB(c,r))out.add(c+','+r)}}
-  else for(const m of legalMoves(piece,ps))out.add(m.c+','+m.r);
-  return out;
-}
 
 function renderBoard(lastMove){
   const ps=piecesForRender();
   const threats=(()=>{ if(!threatFor)return new Set();
-    const p=ps.find(q=>q.id===threatFor&&q.alive); return p?threatSquares(p,ps):new Set(); })();
+    const p=ps.find(q=>q.id===threatFor&&q.alive); return p?ENGINE.threatSquares(p,ps):new Set(); })();
   boardEl.innerHTML='';
   for(let r=ROWS-1;r>=0;r--){
     for(let c=0;c<COLS;c++){
@@ -506,13 +400,22 @@ function renderBoard(lastMove){
       cell.className='cell '+((c+r)%2?'light':'dark')+(inDeploy(c)&&mode==='place'?' deploy':'');
       if(threats.has(c+','+r))cell.classList.add('threat');
       if(lastMove&&((lastMove.to.c===c&&lastMove.to.r===r)))cell.classList.add('lastmove');
-      cell.setAttribute('aria-label',sq(c,r));
       const p=at(ps,c,r);
+      cell.setAttribute('aria-label',p
+        ?`${sq(c,r)}, ${p.side==='player'?'your':'enemy'} ${NAME[p.type]}${mode==='place'?`, initiative ${p.order}`:''}`
+        :sq(c,r));
       if(p){
         const g=document.createElement('span');
         g.className='pc '+p.side+(lastMove&&lastMove.to.c===c&&lastMove.to.r===r?' pop':'');
         g.textContent=GLYPH[p.type];
         cell.appendChild(g);
+        if(mode==='place'){
+          const order=document.createElement('span');
+          order.className='order'+(p.side==='enemy'?' enemy':'');
+          order.textContent=p.order;
+          order.title=`${p.side==='player'?'Your':'Enemy'} initiative ${p.order}`;
+          cell.appendChild(order);
+        }
         if(selType===null&&mode==='place'&&placed.some((_,i)=>'p'+i===p.id))cell.classList.add('sel');
         if(mode==='place'&&!playing&&p.side==='player')
           cell.addEventListener('pointerdown',e=>startDrag(e,{kind:'board',index:Number(p.id.slice(1)),type:p.type},cell));
@@ -553,7 +456,7 @@ function refresh(){
   $('fightBtn').disabled=placed.length===0||playing;
   buildChips(); refreshTray(); renderBoard();
   if(mode==='place'&&!playing&&placed.length===0)
-    movesEl.innerHTML='Drag pieces onto files '+deployLabel()+' (or tap to select, tap to place). Tap an enemy piece to see its strike range. The house plays White and moves first.';
+    movesEl.innerHTML='Drag pieces onto files '+deployLabel()+' (or tap to select, tap to place). Number badges show the fixed front-to-back initiative. Tap an enemy piece to see its strike range. The house plays White and moves first.';
 }
 
 
@@ -642,11 +545,9 @@ const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 async function fight(){
   const pz=PUZZLES[cur];
-  const sim=simulate(placed.map(p=>({...p})),pz.enemy.map(p=>({...p})));
+  const sim=ENGINE.simulate(placed.map(p=>({...p})),pz.enemy.map(p=>({...p})),{forced:FORCED});
   // rebuild live board state and replay
-  let id=0;
-  livePieces=[...placed.map(x=>({...x,side:'player',alive:true,id:'p'+(id++)})),
-              ...pz.enemy.map(x=>({...x,side:'enemy',alive:true,id:'e'+(id++)}))];
+  livePieces=sim.initialPieces.map(piece=>({...piece}));
   playing=true;skipRequested=false;mode='battle';threatFor=null;
   $('fightBtn').disabled=true;$('resetBtn').disabled=true;$('spoilerBtn').disabled=true;$('skipBtn').classList.remove('hidden');
   refreshTray();
