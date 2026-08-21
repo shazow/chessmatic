@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "board": { "cols": 8, "rows": 3 },
+  "pieceCosts": { "P": 2, "N": 3, "B": 3, "R": 5, "Q": 9 },
+  "sides": {
+    "player": { "pawnDir": -1, "deploy": [4, 7] },
+    "enemy":  { "pawnDir": 1,  "deploy": [0, 3] }
+  },
+  "puzzles": [
+    {
+      "id": "lone-rook",
+      "name": "№1 · Lone Rook",
+      "desc": "Set your starting position and watch it play out.",
+      "enemy": [ { "type": "R", "col": 0, "row": 1 } ],
+      "modes": {
+        "club":   { "par": 6, "solution": [ { "type": "P", "col": 4, "row": 1 }, { "type": "P", "col": 4, "row": 2 }, { "type": "P", "col": 5, "row": 0 } ] },
+        "forced": { "par": 4, "solution": [ { "type": "P", "col": 5, "row": 1 }, { "type": "P", "col": 6, "row": 0 } ] }
+      }
+    },
+    {
+      "id": "first-exchange",
+      "name": "№2 · First Exchange",
+      "desc": "A bishop behind a pawn screen. Something has to give.",
+      "enemy": [ { "type": "B", "col": 1, "row": 1 }, { "type": "P", "col": 2, "row": 0 }, { "type": "P", "col": 2, "row": 2 } ],
+      "modes": {
+        "club":   { "par": 5, "solution": [ { "type": "R", "col": 4, "row": 1 } ] },
+        "forced": { "par": 5, "solution": [ { "type": "P", "col": 4, "row": 0 }, { "type": "N", "col": 5, "row": 1 } ] }
+      }
+    },
+    {
+      "id": "open-file",
+      "name": "№3 · Open File",
+      "desc": "The rook strikes first and owns its rank.",
+      "enemy": [ { "type": "R", "col": 0, "row": 0 }, { "type": "P", "col": 2, "row": 1 }, { "type": "P", "col": 1, "row": 2 } ],
+      "modes": {
+        "club":   { "par": 8, "solution": [ { "type": "N", "col": 4, "row": 0 }, { "type": "R", "col": 6, "row": 0 } ] },
+        "forced": { "par": 5, "solution": [ { "type": "B", "col": 4, "row": 0 }, { "type": "P", "col": 5, "row": 1 } ] }
+      }
+    },
+    {
+      "id": "her-majesty",
+      "name": "№4 · Her Majesty",
+      "desc": "Ten points of royalty. Beat her for less.",
+      "enemy": [ { "type": "Q", "col": 1, "row": 1 }, { "type": "P", "col": 3, "row": 1 } ],
+      "modes": {
+        "club":   { "par": 7, "solution": [ { "type": "P", "col": 4, "row": 0 }, { "type": "R", "col": 5, "row": 0 } ] },
+        "forced": { "par": 6, "solution": [ { "type": "P", "col": 4, "row": 0 }, { "type": "P", "col": 4, "row": 1 }, { "type": "P", "col": 5, "row": 0 } ] }
+      }
+    },
+    {
+      "id": "knight-errant",
+      "name": "№5 · Knight Errant",
+      "desc": "A knight roams ahead of a corner rook. The club’s final board.",
+      "enemy": [ { "type": "N", "col": 2, "row": 1 }, { "type": "R", "col": 0, "row": 2 } ],
+      "modes": {
+        "club":   { "par": 7, "solution": [ { "type": "N", "col": 4, "row": 1 }, { "type": "P", "col": 4, "row": 2 }, { "type": "P", "col": 5, "row": 1 } ] },
+        "forced": { "par": 7, "solution": [ { "type": "N", "col": 4, "row": 0 }, { "type": "P", "col": 4, "row": 1 }, { "type": "P", "col": 5, "row": 1 } ] }
+      }
+    }
+  ]
+}

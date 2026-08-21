@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Chessmatic — Chess Puzzle Autobattler</title>
+<style>
+  :root{
+    --felt:#22392e;        /* club table felt */
+    --felt-deep:#1a2d24;
+    --buff:#e9dcbe;        /* tournament vinyl light square */
+    --green:#4a7a5e;       /* tournament vinyl dark square */
+    --paper:#f4ecd9;       /* scoresheet paper */
+    --ink:#2b2b26;
+    --brass:#c9a227;       /* trophy brass */
+    --signal:#b3402f;      /* enemy / threat red */
+    --white-pc:#f7f3e8;
+    --black-pc:#26221c;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    background:
+      radial-gradient(120% 90% at 50% 0%, #2b4a3a 0%, var(--felt) 45%, var(--felt-deep) 100%);
+    color:var(--paper);
+    font-family:'Avenir Next','Segoe UI',system-ui,-apple-system,sans-serif;
+    display:flex;flex-direction:column;align-items:center;
+    padding:14px 10px 40px;min-height:100%;
+  }
+  .wrap{width:100%;max-width:520px;display:flex;flex-direction:column;gap:14px}
+
+  /* ---------- header ---------- */
+  header{text-align:center}
+  h1{
+    font-family:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif;
+    font-weight:600;font-size:30px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--paper);
+  }
+  h1 .knight{color:var(--brass);letter-spacing:0;margin-right:.15em}
+  .tagline{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#9db8a8;margin-top:2px}
+
+  /* ---------- puzzle chips ---------- */
+  .chips{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+  .chip{
+    border:1px solid #557a66;background:transparent;color:#bcd3c5;
+    font:inherit;font-size:13px;padding:6px 12px;border-radius:999px;cursor:pointer;
+  }
+  .chip[aria-pressed="true"]{background:var(--brass);border-color:var(--brass);color:#231d08;font-weight:600}
+  .chip.solved::after{content:" ✓"}
+
+  /* ---------- mission card ---------- */
+  .mission{
+    background:var(--paper);color:var(--ink);border-radius:10px;
+    padding:10px 14px;display:flex;justify-content:space-between;align-items:baseline;gap:10px;
+    box-shadow:0 2px 0 rgba(0,0,0,.35);
+  }
+  .mission b{font-family:Georgia,serif;font-size:17px}
+  .mission .par{font-size:13px;color:#6b6353}
+  .mission .par strong{color:var(--signal);font-size:16px}
+
+  /* ---------- board ---------- */
+  .board-shell{background:#111b15;border-radius:12px;padding:10px 10px 6px;box-shadow:inset 0 0 0 1px #3a5747,0 6px 18px rgba(0,0,0,.4)}
+  .board{display:grid;grid-template-columns:repeat(8,1fr);gap:0;border:3px solid #0d1410;border-radius:6px;overflow:hidden}
+  .cell{
+    touch-action:none;
+    aspect-ratio:1;position:relative;border:none;padding:0;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;font-size:min(7.5vw,34px);line-height:1;
+  }
+  .cell.light{background:var(--buff)}
+  .cell.dark{background:var(--green)}
+  .cell.deploy.light{background:#f0e6cd}
+  .cell.deploy.dark{background:#568a6c}
+  .cell:focus-visible{outline:3px solid var(--brass);outline-offset:-3px;z-index:2}
+  .cell.sel::after{content:"";position:absolute;inset:3px;border:2px dashed var(--brass);border-radius:4px}
+  .cell.threat::before{
+    content:"";position:absolute;inset:0;
+    background:repeating-linear-gradient(45deg,rgba(179,64,47,.42) 0 5px,rgba(179,64,47,.12) 5px 10px);
+  }
+  .cell.lastmove::after{content:"";position:absolute;inset:2px;border:2px solid var(--brass);border-radius:4px}
+  .cell.droppable::after{content:"";position:absolute;inset:2px;border-radius:4px;border:1.5px solid rgba(74,58,35,.45)}
+  .cell.drophover{filter:brightness(1.12)}
+  .cell.drophover::after{content:"";position:absolute;inset:2px;border-radius:4px;background:none;border:3px solid var(--brass)}
+  .pc{display:block;transition:transform .12s ease;text-shadow:0 1px 0 rgba(0,0,0,.18);pointer-events:none}
+  .pc.player{color:var(--black-pc);-webkit-text-stroke:1px rgba(244,236,217,.34)}
+  .pc.enemy{color:var(--white-pc);-webkit-text-stroke:1px #4a4335}
+  .pc.pop{animation:pop .22s ease}
+  .turn{
+    position:absolute;bottom:1px;left:50%;transform:translateX(-50%);z-index:2;
+    width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;
+    border-bottom:6px solid var(--brass);
+    filter:drop-shadow(0 1px 1px rgba(0,0,0,.35));
+  }
+  .turn.enemy{border-bottom-color:var(--signal)}
+  .pin{
+    position:absolute;top:2px;right:2px;width:11px;height:11px;z-index:2;
+    border:2px solid var(--signal);border-radius:50%;
+    background:linear-gradient(135deg,transparent 44%,var(--signal) 44% 56%,transparent 56%);
+    filter:drop-shadow(0 1px 1px rgba(0,0,0,.35));
+  }
+  @keyframes pop{0%{transform:scale(.4)}70%{transform:scale(1.15)}100%{transform:scale(1)}}
+  .frontier{position:relative}
+  .files{display:grid;grid-template-columns:repeat(8,1fr);font-size:10px;color:#7f9c8c;text-align:center;padding-top:4px;letter-spacing:.05em}
+
+  /* ---------- tray ---------- */
+  .tray{display:flex;gap:8px;justify-content:center}
+  .slot{
+    touch-action:none;
+    flex:1;max-width:78px;background:var(--paper);border:none;border-radius:10px;padding:8px 0 6px;
+    display:flex;flex-direction:column;align-items:center;cursor:pointer;color:var(--ink);
+    box-shadow:0 2px 0 rgba(0,0,0,.35);font:inherit;
+  }
+  .slot .g{font-size:30px;line-height:1;color:var(--black-pc);-webkit-text-stroke:1px rgba(244,236,217,.3);text-shadow:0 1px 2px rgba(0,0,0,.18)}
+  .slot .c{font-size:12px;color:#6b6353;margin-top:2px}
+  .slot[aria-pressed="true"]{outline:3px solid var(--brass);transform:translateY(1px)}
+  .slot:disabled{opacity:.4;cursor:default}
+
+  /* ---------- HUD / controls ---------- */
+  .hud{display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .spend{font-family:Georgia,serif;font-size:15px}
+  .spend strong{color:var(--brass);font-size:20px}
+  .btns{display:flex;gap:8px}
+  .btn{
+    font:inherit;font-size:14px;font-weight:600;letter-spacing:.04em;
+    border:none;border-radius:8px;padding:10px 16px;cursor:pointer;
+  }
+  .btn.primary{background:var(--brass);color:#231d08;box-shadow:0 2px 0 #8a6d12}
+  .btn.ghost{background:transparent;color:#bcd3c5;border:1px solid #557a66}
+  .btn:disabled{opacity:.45;cursor:default}
+  .btn.spoiler{color:#d9a79c;border-color:#8a5548}
+  .btn.spoiler.armed{background:var(--signal);border-color:var(--signal);color:var(--paper)}
+  .btn:focus-visible,.chip:focus-visible,.slot:focus-visible{outline:3px solid var(--paper);outline-offset:2px}
+
+  /* ---------- scoresheet ---------- */
+  .sheet{
+    background:var(--paper);color:var(--ink);border-radius:10px;padding:10px 14px;
+    min-height:64px;max-height:110px;overflow-y:auto;
+    font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:13px;line-height:1.7;
+    box-shadow:0 2px 0 rgba(0,0,0,.35);
+    background-image:repeating-linear-gradient(transparent 0 21px,rgba(43,43,38,.08) 21px 22px);
+  }
+  .sheet .lbl{font-family:Georgia,serif;font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#8a8272}
+  .sheet .mv.enemy{color:var(--signal)}
+  .sheet .mv.player{color:#2e5c44}
+
+  /* ---------- help & result ---------- */
+  details{background:rgba(0,0,0,.22);border-radius:10px;padding:10px 14px;font-size:13.5px;line-height:1.55;color:#cfe0d5}
+  details summary{cursor:pointer;font-weight:600;letter-spacing:.06em;color:var(--paper)}
+  details p{margin-top:8px}
+  label.toggle{display:flex;gap:10px;align-items:center;cursor:pointer;font-weight:600;color:var(--paper)}
+  label.toggle input{width:18px;height:18px;accent-color:var(--brass);cursor:pointer}
+  details .note{font-size:12.5px;color:#a8bfb1}
+  details b{color:var(--brass)}
+
+  .overlay{
+    position:fixed;inset:0;background:rgba(13,20,16,.82);display:flex;align-items:center;justify-content:center;
+    padding:20px;z-index:10;
+  }
+  .card{
+    background:var(--paper);color:var(--ink);border-radius:14px;padding:26px 24px;text-align:center;max-width:340px;width:100%;
+    border-top:6px solid var(--brass);
+  }
+  .card.lost{border-top-color:var(--signal)}
+  .card h2{font-family:Georgia,serif;font-size:26px;letter-spacing:.06em}
+  .card .verdict{font-size:15px;margin-top:6px;color:#6b6353}
+  .card .score{font-family:Georgia,serif;font-size:44px;margin:12px 0 2px;color:var(--felt)}
+  .card .score small{font-size:16px;color:#8a8272}
+  .card .row{display:flex;gap:8px;justify-content:center;margin-top:18px;flex-wrap:wrap}
+  .share-out{
+    width:100%;margin-top:14px;padding:8px 10px;border-radius:8px;border:1px dashed #b3a888;
+    background:#fbf6ea;color:var(--ink);font:12.5px ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  }
+  .hidden{display:none !important}
+
+  @media (prefers-reduced-motion: reduce){
+    .pc,.pc.pop{animation:none;transition:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1><span class="knight" id="knightToggle">♞</span>Chessmatic</h1>
+    <div class="tagline">Chess Puzzle Autobattler</div>
+  </header>
+
+  <div class="chips" id="chips" role="group" aria-label="Choose a puzzle"></div>
+
+  <div class="mission">
+    <div><b id="pzName"></b><div class="par" id="pzDesc"></div></div>
+    <div class="par">Par <strong id="pzPar"></strong> pts</div>
+  </div>
+
+  <div class="board-shell">
+    <div class="board" id="board" aria-label="Battle board, 8 files by 3 ranks"></div>
+    <div class="files"><span>a</span><span>b</span><span>c</span><span>d</span><span>e</span><span>f</span><span>g</span><span>h</span></div>
+  </div>
+
+  <div class="tray" id="tray" role="group" aria-label="Pieces for hire"></div>
+
+  <div class="hud">
+    <div class="spend">Spend <strong id="spend">0</strong> pts</div>
+    <div class="btns">
+      <button class="btn ghost spoiler" id="spoilerBtn">Spoiler</button>
+      <button class="btn ghost" id="resetBtn">Clear</button>
+      <button class="btn ghost hidden" id="skipBtn">Skip ≫</button>
+      <button class="btn primary" id="fightBtn" disabled>Start battle</button>
+    </div>
+  </div>
+
+  <div class="sheet" id="sheet"><span class="lbl">Scoresheet</span><div id="moves">Drag pieces onto your files (or tap to select, tap to place). Tap an enemy piece to see its strike range. The house plays White and moves first.</div></div>
+
+  <details>
+    <summary>How the battle plays out</summary>
+    <p>Battles run in rounds with a fixed batting order — and <b>the house plays White</b>, so it moves first: their first piece, your first, their second, your second, and so on. The schedule never changes, so you can plan around it. Every piece attempts one action per round; a frozen piece simply does nothing in its slot. If a whole round passes with no piece moving, the position is dead and the house wins. Every piece follows the same three rules, always:</p>
+    <p><b>1. Strike.</b> If it can capture, it captures the most valuable target in range. Full chess range — a rook strikes down its whole file or rank.</p>
+    <p><b>2. Creep.</b> Otherwise it advances one square toward the nearest enemy. Knights leap as normal.</p>
+    <p><b>3. Never trade down.</b> A piece refuses to move onto — or capture on — any square defended by a cheaper or equal enemy. A 2-point pawn's diagonal is poison to a 5-point rook. A piece with no safe option must still act — it makes its least-bad move, which is how baiting works. (Enable holds in Advanced settings and trapped pieces will freeze in place instead.)</p>
+    <p>Win by clearing every enemy piece within 20 rounds. Your score is the points you spent — match par and you've found the cheapest possible answer.</p>
+  </details>
+
+  <details class="advanced">
+    <summary>Advanced settings</summary>
+    <p><label class="toggle"><input type="checkbox" id="holdsToggle"> Pieces are allowed to skip moves (holds &amp; pins)</label></p>
+    <p class="note">By default every piece must act: anything that would stand still makes its least-bad move instead. Turning this on is the <b>club rules</b> variant — pieces may hold their ground, and a piece with no safe move is pinned (⊘) until the position changes. Every par changes with the rule; the par display, spoilers, and share text all follow whichever is active.</p>
+  </details>
+</div>
+
+<div class="overlay hidden" id="overlay">
+  <div class="card" id="resultCard">
+    <h2 id="resTitle"></h2>
+    <div class="verdict" id="resVerdict"></div>
+    <div class="score" id="resScore"></div>
+    <input class="share-out hidden" id="shareOut" readonly aria-label="Shareable result text">
+    <div class="row">
+      <button class="btn ghost" id="againBtn">Retry</button>
+      <button class="btn ghost hidden" id="shareBtn">Copy result</button>
+      <button class="btn primary hidden" id="nextBtn">Next puzzle</button>
+    </div>
+  </div>
+</div>
+
+<script type="application/json" id="puzzleData">
+{
+  "version": 1,
+  "board": { "cols": 8, "rows": 3 },
+  "pieceCosts": { "P": 2, "N": 3, "B": 3, "R": 5, "Q": 9 },
+  "sides": {
+    "player": { "pawnDir": -1, "deploy": [4, 7] },
+    "enemy":  { "pawnDir": 1,  "deploy": [0, 3] }
+  },
+  "puzzles": [
+    {
+      "id": "lone-rook",
+      "name": "№1 · Lone Rook",
+      "desc": "Set your starting position and watch it play out.",
+      "enemy": [ { "type": "R", "col": 0, "row": 1 } ],
+      "modes": {
+        "club":   { "par": 6, "solution": [ { "type": "P", "col": 4, "row": 1 }, { "type": "P", "col": 4, "row": 2 }, { "type": "P", "col": 5, "row": 0 } ] },
+        "forced": { "par": 4, "solution": [ { "type": "P", "col": 5, "row": 1 }, { "type": "P", "col": 6, "row": 0 } ] }
+      }
+    },
+    {
+      "id": "first-exchange",
+      "name": "№2 · First Exchange",
+      "desc": "A bishop behind a pawn screen. Something has to give.",
+      "enemy": [ { "type": "B", "col": 1, "row": 1 }, { "type": "P", "col": 2, "row": 0 }, { "type": "P", "col": 2, "row": 2 } ],
+      "modes": {
+        "club":   { "par": 5, "solution": [ { "type": "R", "col": 4, "row": 1 } ] },
+        "forced": { "par": 5, "solution": [ { "type": "P", "col": 4, "row": 0 }, { "type": "N", "col": 5, "row": 1 } ] }
+      }
+    },
+    {
+      "id": "open-file",
+      "name": "№3 · Open File",
+      "desc": "The rook strikes first and owns its rank.",
+      "enemy": [ { "type": "R", "col": 0, "row": 0 }, { "type": "P", "col": 2, "row": 1 }, { "type": "P", "col": 1, "row": 2 } ],
+      "modes": {
+        "club":   { "par": 8, "solution": [ { "type": "N", "col": 4, "row": 0 }, { "type": "R", "col": 6, "row": 0 } ] },
+        "forced": { "par": 5, "solution": [ { "type": "B", "col": 4, "row": 0 }, { "type": "P", "col": 5, "row": 1 } ] }
+      }
+    },
+    {
+      "id": "her-majesty",
+      "name": "№4 · Her Majesty",
+      "desc": "Ten points of royalty. Beat her for less.",
+      "enemy": [ { "type": "Q", "col": 1, "row": 1 }, { "type": "P", "col": 3, "row": 1 } ],
+      "modes": {
+        "club":   { "par": 7, "solution": [ { "type": "P", "col": 4, "row": 0 }, { "type": "R", "col": 5, "row": 0 } ] },
+        "forced": { "par": 6, "solution": [ { "type": "P", "col": 4, "row": 0 }, { "type": "P", "col": 4, "row": 1 }, { "type": "P", "col": 5, "row": 0 } ] }
+      }
+    },
+    {
+      "id": "knight-errant",
+      "name": "№5 · Knight Errant",
+      "desc": "A knight roams ahead of a corner rook. The club’s final board.",
+      "enemy": [ { "type": "N", "col": 2, "row": 1 }, { "type": "R", "col": 0, "row": 2 } ],
+      "modes": {
+        "club":   { "par": 7, "solution": [ { "type": "N", "col": 4, "row": 1 }, { "type": "P", "col": 4, "row": 2 }, { "type": "P", "col": 5, "row": 1 } ] },
+        "forced": { "par": 7, "solution": [ { "type": "N", "col": 4, "row": 0 }, { "type": "P", "col": 4, "row": 1 }, { "type": "P", "col": 5, "row": 1 } ] }
+      }
+    }
+  ]
+}
+</script>
+<script>
+/* ================= engine (data-driven; orientation comes from puzzleData) ================= */
+let COLS=8, ROWS=3, COST=null, DIRS=null, DEP_MIN=4, DEP_MAX=7;
+let PUZZLES=[];
+function applyData(data){
+  COLS=data.board.cols; ROWS=data.board.rows;
+  COST=data.pieceCosts;
+  DIRS={player:data.sides.player.pawnDir, enemy:data.sides.enemy.pawnDir};
+  DEP_MIN=data.sides.player.deploy[0]; DEP_MAX=data.sides.player.deploy[1];
+  PUZZLES=data.puzzles.map(p=>({name:p.name,desc:p.desc,enemy:p.enemy,
+    par:p.modes.club.par,sol:p.modes.club.solution,
+    parF:p.modes.forced.par,solF:p.modes.forced.solution}));
+}
+const inDeploy=c=>c>=DEP_MIN&&c<=DEP_MAX;
+const deployLabel=()=>'abcdefgh'[DEP_MIN]+'\u2013'+'abcdefgh'[DEP_MAX];
+const GLYPH={P:'♟',N:'♞',B:'♝',R:'♜',Q:'♛'};
+const NAME={P:'pawn',N:'knight',B:'bishop',R:'rook',Q:'queen'};
+
+const at=(ps,c,r)=>ps.find(p=>p.alive&&p.col===c&&p.row===r);
+const inB=(c,r)=>c>=0&&c<COLS&&r>=0&&r<ROWS;
+
+function slideMoves(p,ps,dirs){const out=[];for(const[dc,dr]of dirs){let c=p.col+dc,r=p.row+dr;
+  while(inB(c,r)){const o=at(ps,c,r);if(o){if(o.side!==p.side)out.push({c,r,cap:o});break}out.push({c,r,cap:null});c+=dc;r+=dr}}return out}
+
+function legalMoves(p,ps){const out=[];const push=(c,r)=>{if(!inB(c,r))return;const o=at(ps,c,r);if(o&&o.side===p.side)return;out.push({c,r,cap:o||null})};
+  const dir=DIRS[p.side];
+  switch(p.type){
+    case 'P':{if(inB(p.col+dir,p.row)&&!at(ps,p.col+dir,p.row))out.push({c:p.col+dir,r:p.row,cap:null});
+      for(const dr of[-1,1]){const c=p.col+dir,r=p.row+dr;if(!inB(c,r))continue;const o=at(ps,c,r);if(o&&o.side!==p.side)out.push({c,r,cap:o})}return out}
+    case 'N':{for(const[dc,dr]of[[1,2],[2,1],[2,-1],[1,-2],[-1,-2],[-2,-1],[-2,1],[-1,2]])push(p.col+dc,p.row+dr);return out}
+    case 'B':return slideMoves(p,ps,[[1,1],[1,-1],[-1,1],[-1,-1]]);
+    case 'R':return slideMoves(p,ps,[[1,0],[-1,0],[0,1],[0,-1]]);
+    case 'Q':return slideMoves(p,ps,[[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]);
+  }return out}
+
+function attacksSq(e,c,r,occ){
+  const dc=c-e.col,dr=r-e.row;
+  switch(e.type){
+    case 'P':{return dc===DIRS[e.side]&&Math.abs(dr)===1}
+    case 'N':return(Math.abs(dc)===1&&Math.abs(dr)===2)||(Math.abs(dc)===2&&Math.abs(dr)===1);
+    default:{
+      const diag=Math.abs(dc)===Math.abs(dr)&&dc!==0,ortho=(dc===0)!==(dr===0);
+      const ok=e.type==='B'?diag:e.type==='R'?ortho:(diag||ortho);
+      if(!ok)return false;
+      const sc=Math.sign(dc),sr=Math.sign(dr),n=Math.max(Math.abs(dc),Math.abs(dr));
+      for(let i=1;i<n;i++)if(occ(e.col+sc*i,e.row+sr*i))return false;
+      return true;
+    }
+  }
+}
+// Unsafe: attacked by cheaper/equal enemy (trade-down), or by ANY enemy while undefended (hanging).
+function unsafeSquare(p,c,r,ps,ignore){
+  const occ=(cc,rr)=>ps.some(q=>q.alive&&q!==p&&q!==ignore&&q.col===cc&&q.row===rr)||(cc===c&&rr===r);
+  let expensive=false;
+  for(const e of ps){
+    if(!e.alive||e===p||e===ignore||e.side===p.side)continue;
+    if(!attacksSq(e,c,r,occ))continue;
+    if(COST[e.type]<=COST[p.type])return true;
+    expensive=true;
+  }
+  if(!expensive)return false;
+  for(const q of ps){
+    if(!q.alive||q===p||q===ignore||q.side!==p.side)continue;
+    if(attacksSq(q,c,r,occ))return false;
+  }
+  return true;
+}
+
+function nearestEnemyDist(c,r,ps,side){let b=Infinity;
+  for(const e of ps)if(e.alive&&e.side!==side)b=Math.min(b,Math.abs(e.col-c)+Math.abs(e.row-r));return b}
+
+let FORCED=true; // default: forced march — no piece may stand still. Toggle in Advanced settings.
+function forcedFallback(p,ps,moves){
+  const sc=moves.map(m=>({m,unsafe:unsafeSquare(p,m.c,m.r,ps,m.cap)?1:0,d:nearestEnemyDist(m.c,m.r,ps,p.side),step:Math.abs(m.c-p.col)+Math.abs(m.r-p.row)}));
+  sc.sort((a,b)=>(a.unsafe-b.unsafe)||(a.d-b.d)||(a.step-b.step)||(a.m.c-b.m.c)||(a.m.r-b.m.r));
+  return sc[0].m;
+}
+// Pure: what would this piece do right now? {move} | {pinned:true} | {hold:true}
+function chooseAction(p,ps){
+  const moves=legalMoves(p,ps);if(!moves.length)return{pinned:true};
+  const caps=moves.filter(m=>m.cap).filter(m=>COST[m.cap.type]>=COST[p.type]||!unsafeSquare(p,m.c,m.r,ps,m.cap));
+  if(caps.length){caps.sort((a,b)=>(COST[b.cap.type]-COST[a.cap.type])||(a.c-b.c)||(a.r-b.r));return{move:caps[0]}}
+  const cur=nearestEnemyDist(p.col,p.row,ps,p.side);
+  let pool=(p.type==='N'||p.type==='P')?moves:moves.filter(m=>Math.max(Math.abs(m.c-p.col),Math.abs(m.r-p.row))===1);
+  pool=pool.filter(m=>!unsafeSquare(p,m.c,m.r,ps));
+  if(!pool.length)return FORCED?{move:forcedFallback(p,ps,moves)}:{pinned:true};
+  const sc=pool.map(m=>({m,d:nearestEnemyDist(m.c,m.r,ps,p.side),step:Math.abs(m.c-p.col)+Math.abs(m.r-p.row)}));
+  sc.sort((a,b)=>(a.d-b.d)||(a.step-b.step)||(a.m.c-b.m.c)||(a.m.r-b.m.r));
+  if(sc[0].d<cur)return{move:sc[0].m};
+  return FORCED?{move:forcedFallback(p,ps,moves)}:{hold:true};
+}
+function actPiece(p,ps){
+  const a=chooseAction(p,ps);
+  if(!a.move)return a; // pass: {pinned} or {hold}
+  const ch=a.move;
+  const ev={pieceId:p.id,type:p.type,side:p.side,from:{c:p.col,r:p.row},to:{c:ch.c,r:ch.r},captured:ch.cap?{id:ch.cap.id,type:ch.cap.type}:null};
+  if(ch.cap)ch.cap.alive=false;
+  p.col=ch.c;p.row=ch.r;return ev}
+
+function status(ps){
+  const pa=ps.filter(p=>p.alive&&p.side==='player'),ea=ps.filter(p=>p.alive&&p.side==='enemy');
+  if(!ea.length)return 'win';if(!pa.length)return 'loss';return null}
+
+function simulate(placements,enemySetup){
+  let id=0;
+  const pl=placements.map(x=>({...x,side:'player',alive:true,id:'p'+(id++)}));
+  const en=enemySetup.map(x=>({...x,side:'enemy',alive:true,id:'e'+(id++)}));
+  const ps=[...pl,...en];
+  const initiative=[];
+  for(let i=0;i<Math.max(pl.length,en.length);i++){
+    if(en[i])initiative.push(en[i].id);   // the house moves first
+    if(pl[i])initiative.push(pl[i].id);
+  }
+  const events=[];const ROUND_LIMIT=20;
+  for(let round=0;round<ROUND_LIMIT;round++){
+    let actions=0;
+    for(const pid of initiative){
+      const p=ps.find(q=>q.id===pid);
+      if(!p||!p.alive)continue;
+      const res=actPiece(p,ps);
+      if(res.pieceId){actions++;events.push({round,side:p.side,ev:res})}
+      else events.push({round,side:p.side,ev:null,pinned:!!res.pinned,pid:p.id,ptype:p.type,at:{c:p.col,r:p.row}});
+      const result=status(ps);
+      if(result)return{result,events};
+    }
+    if(!actions)return{result:'loss',events,stalemate:true};
+  }
+  return{result:'loss',events,timeout:true}}
+
+/* ================= puzzles (pars verified by brute-force solver) ================= */
+/* puzzles load from puzzleData JSON (or chessmatic-puzzles.json when hosted) */
+
+/* ================= UI state ================= */
+let cur=0, placed=[], selType=null, mode='place', playing=false, solved=JSON.parse(sessionStorage.getItem?'null':'null')||{};
+let livePieces=[], skipRequested=false, pinnedSet=new Set(), activeId=null;
+
+const $=id=>document.getElementById(id);
+const boardEl=$('board'), trayEl=$('tray'), chipsEl=$('chips'), movesEl=$('moves');
+const fileOf=c=>'abcdefgh'[c], sq=(c,r)=>fileOf(c)+(r+1);
+const spendOf=()=>placed.reduce((s,p)=>s+COST[p.type],0);
+const curPar=()=>FORCED?PUZZLES[cur].parF:PUZZLES[cur].par;
+const curSol=()=>FORCED?PUZZLES[cur].solF:PUZZLES[cur].sol;
+
+function buildChips(){
+  chipsEl.innerHTML='';
+  PUZZLES.forEach((pz,i)=>{
+    const b=document.createElement('button');
+    b.className='chip'+(solved[i]?' solved':'');
+    b.textContent='I II III IV V'.split(' ')[i];
+    b.setAttribute('aria-pressed',i===cur);
+    b.onclick=()=>{if(playing)return;cur=i;placed=[];selType=null;disarmSpoiler();refresh()};
+    chipsEl.appendChild(b);
+  });
+}
+
+function buildTray(){
+  trayEl.innerHTML='';
+  for(const t of ['P','N','B','R','Q']){
+    const b=document.createElement('button');
+    b.className='slot';b.dataset.type=t;
+    b.innerHTML=`<span class="g">${GLYPH[t]}</span><span class="c">${NAME[t]} · ${COST[t]}</span>`;
+    b.setAttribute('aria-pressed','false');
+    b.onclick=()=>{if(playing||justDragged)return;selType=selType===t?null:t;refreshTray();renderBoard()};
+    b.addEventListener('pointerdown',e=>startDrag(e,{kind:'tray',type:t},b));
+    trayEl.appendChild(b);
+  }
+}
+function refreshTray(){
+  for(const b of trayEl.children){
+    b.setAttribute('aria-pressed',String(b.dataset.type===selType));
+    b.disabled=playing;
+  }
+}
+
+function piecesForRender(){
+  if(playing||mode==='done')return livePieces;
+  return [
+    ...placed.map((p,i)=>({...p,side:'player',alive:true,id:'p'+i})),
+    ...PUZZLES[cur].enemy.map((p,i)=>({...p,side:'enemy',alive:true,id:'e'+i})),
+  ];
+}
+
+let threatFor=null; // piece id whose threat range is shown
+function threatSquares(piece,ps){
+  const out=new Set();
+  // capture range = where this piece could strike (ignore trade-down rule for the preview: show raw danger)
+  if(piece.type==='P'){const dir=piece.side==='player'?1:-1;
+    for(const dr of[-1,1]){const c=piece.col+dir,r=piece.row+dr;if(inB(c,r))out.add(c+','+r)}}
+  else for(const m of legalMoves(piece,ps))out.add(m.c+','+m.r);
+  return out;
+}
+
+function renderBoard(lastMove){
+  const ps=piecesForRender();
+  const threats=(()=>{ if(!threatFor)return new Set();
+    const p=ps.find(q=>q.id===threatFor&&q.alive); return p?threatSquares(p,ps):new Set(); })();
+  boardEl.innerHTML='';
+  for(let r=ROWS-1;r>=0;r--){
+    for(let c=0;c<COLS;c++){
+      const cell=document.createElement('button');
+      cell.dataset.c=c;cell.dataset.r=r;
+      cell.className='cell '+((c+r)%2?'light':'dark')+(inDeploy(c)&&mode==='place'?' deploy':'');
+      if(threats.has(c+','+r))cell.classList.add('threat');
+      if(lastMove&&((lastMove.to.c===c&&lastMove.to.r===r)))cell.classList.add('lastmove');
+      cell.setAttribute('aria-label',sq(c,r));
+      const p=at(ps,c,r);
+      if(p){
+        const g=document.createElement('span');
+        g.className='pc '+p.side+(lastMove&&lastMove.to.c===c&&lastMove.to.r===r?' pop':'');
+        g.textContent=GLYPH[p.type];
+        cell.appendChild(g);
+        if(selType===null&&mode==='place'&&placed.some((_,i)=>'p'+i===p.id))cell.classList.add('sel');
+        if(mode==='place'&&!playing&&p.side==='player')
+          cell.addEventListener('pointerdown',e=>startDrag(e,{kind:'board',index:Number(p.id.slice(1)),type:p.type},cell));
+        if((playing||mode==='done')&&pinnedSet.has(p.id)){const pin=document.createElement('span');pin.className='pin';pin.title='Pinned: every move is poisoned';cell.appendChild(pin)}
+        if((playing||mode==='done')&&p.id===activeId){const t=document.createElement('span');t.className='turn'+(p.side==='enemy'?' enemy':'');t.title=p.side==='player'?'Your piece just acted':'Their piece just acted';cell.appendChild(t)}
+      }
+      cell.onclick=()=>{if(justDragged)return;onCell(c,r,p)};
+      boardEl.appendChild(cell);
+    }
+  }
+}
+
+function onCell(c,r,p){
+  if(playing)return;
+  if(p){ // toggle threat preview / remove own piece
+    if(p.side==='player'&&mode==='place'&&!selType){
+      const i=Number(p.id.slice(1)); placed.splice(i,1); threatFor=null; refresh(); return;
+    }
+    threatFor=threatFor===p.id?null:p.id; renderBoard(); logHint(p); return;
+  }
+  threatFor=null;
+  if(mode!=='place'||!selType)return void renderBoard();
+  if(!inDeploy(c)){flashMsg('Deploy on files '+deployLabel()+' only.');return}
+  placed.push({type:selType,col:c,row:r});
+  refresh();
+}
+
+function logHint(p){
+  if(p.side!=='enemy')return;
+  movesEl.innerHTML=`Red hatching = every square the ${NAME[p.type]} on ${sq(p.col,p.row)} can strike right now. It will refuse squares defended by cheaper pieces.`;
+}
+function flashMsg(t){movesEl.innerHTML=t}
+
+function refresh(){
+  const pz=PUZZLES[cur];
+  $('pzName').textContent=pz.name; $('pzDesc').textContent=pz.desc; $('pzPar').textContent=curPar();
+  $('spend').textContent=spendOf();
+  $('fightBtn').disabled=placed.length===0||playing;
+  buildChips(); refreshTray(); renderBoard();
+  if(mode==='place'&&!playing&&placed.length===0)
+    movesEl.innerHTML='Drag pieces onto files '+deployLabel()+' (or tap to select, tap to place). Tap an enemy piece to see its strike range. The house plays White and moves first.';
+}
+
+
+/* ================= drag & drop ================= */
+let justDragged=false, ghost=null;
+function validDropCells(src){
+  const out=new Set();
+  const ps=piecesForRender();
+  for(let c=DEP_MIN;c<=DEP_MAX;c++)for(let r=0;r<ROWS;r++){
+    const occ=ps.some(q=>q.alive&&q.col===c&&q.row===r&&!(src.kind==='board'&&q.id==='p'+src.index));
+    if(!occ)out.add(c+','+r);
+  }
+  return out;
+}
+function startDrag(e,src,el){
+  if(playing||mode!=='place')return;
+  if(e.pointerType==='mouse'&&e.button!==0)return;
+  const sx=e.clientX, sy=e.clientY;
+  let dragging=false, valid=null, hoverCell=null;
+  const cellAt=ev=>{
+    const t=document.elementFromPoint(ev.clientX,ev.clientY);
+    return t&&t.closest?t.closest('.cell'):null;
+  };
+  const clearMarks=()=>{
+    for(const c of boardEl.querySelectorAll('.droppable,.drophover'))c.classList.remove('droppable','drophover');
+    hoverCell=null;
+  };
+  const move=ev=>{
+    if(!dragging&&Math.hypot(ev.clientX-sx,ev.clientY-sy)<7)return;
+    if(!dragging){
+      dragging=true;
+      valid=validDropCells(src);
+      for(const c of boardEl.children){
+        if(c.dataset.c!==undefined&&valid.has(c.dataset.c+','+c.dataset.r))c.classList.add('droppable');
+      }
+      ghost=document.createElement('div');
+      ghost.textContent=GLYPH[src.type];
+      ghost.style.cssText='position:fixed;z-index:99;pointer-events:none;font-size:40px;transform:translate(-50%,-60%);color:var(--black-pc);-webkit-text-stroke:1px rgba(244,236,217,.4);text-shadow:0 0 8px rgba(244,236,217,.45),0 3px 8px rgba(0,0,0,.5)';
+      document.body.appendChild(ghost);
+      if(src.kind==='board'){const pc=el.querySelector('.pc');if(pc)pc.style.opacity='.25'}
+    }
+    ghost.style.left=ev.clientX+'px'; ghost.style.top=ev.clientY+'px';
+    const cell=cellAt(ev);
+    if(cell!==hoverCell){
+      if(hoverCell)hoverCell.classList.remove('drophover');
+      hoverCell=null;
+      if(cell&&valid.has(cell.dataset.c+','+cell.dataset.r)){cell.classList.add('drophover');hoverCell=cell}
+    }
+  };
+  const up=ev=>{
+    el.removeEventListener('pointermove',move);
+    el.removeEventListener('pointerup',up);
+    el.removeEventListener('pointercancel',up);
+    if(ghost){ghost.remove();ghost=null}
+    if(!dragging)return;
+    clearMarks();
+    justDragged=true; setTimeout(()=>justDragged=false,0);
+    const cell=ev.type==='pointercancel'?null:cellAt(ev);
+    if(cell){
+      const c=Number(cell.dataset.c), r=Number(cell.dataset.r);
+      if(valid.has(c+','+r)){
+        if(src.kind==='tray')placed.push({type:src.type,col:c,row:r});
+        else{placed[src.index].col=c;placed[src.index].row=r}
+        threatFor=null;refresh();return;
+      }
+      // invalid square: snap back, never delete
+      if(!inDeploy(c))flashMsg('Deploy on files '+deployLabel()+' only \u2014 piece snapped back.');
+      else flashMsg('That square is taken \u2014 piece snapped back.');
+      threatFor=null;refresh();return;
+    }
+    // released off the board entirely
+    if(src.kind==='board'){
+      placed.splice(src.index,1);
+      flashMsg('Piece returned to the box.');
+    }
+    threatFor=null;refresh();
+  };
+  el.setPointerCapture(e.pointerId);
+  el.addEventListener('pointermove',move);
+  el.addEventListener('pointerup',up);
+  el.addEventListener('pointercancel',up);
+}
+/* ================= battle playback ================= */
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+async function fight(){
+  const pz=PUZZLES[cur];
+  const sim=simulate(placed.map(p=>({...p})),pz.enemy.map(p=>({...p})));
+  // rebuild live board state and replay
+  let id=0;
+  livePieces=[...placed.map(x=>({...x,side:'player',alive:true,id:'p'+(id++)})),
+              ...pz.enemy.map(x=>({...x,side:'enemy',alive:true,id:'e'+(id++)}))];
+  playing=true;skipRequested=false;mode='battle';threatFor=null;
+  $('fightBtn').disabled=true;$('resetBtn').disabled=true;$('spoilerBtn').disabled=true;$('skipBtn').classList.remove('hidden');
+  refreshTray();
+  movesEl.innerHTML='<b>Battle begins.</b><br>';
+  renderBoard();
+  pinnedSet=new Set();activeId=null;
+  let n=1,lastRound=-1;const pinLogged=new Set();
+  for(const step of sim.events){
+    if(step.round!==lastRound){lastRound=step.round;movesEl.innerHTML+=`<span class="lbl">— round ${step.round+1} —</span><br>`}
+    if(!step.ev){
+      activeId=step.pid;
+      if(step.pinned){
+        pinnedSet.add(step.pid);
+        if(!pinLogged.has(step.pid)){
+          pinLogged.add(step.pid);
+          movesEl.innerHTML+=`<span class="mv ${step.side}">⊘ ${GLYPH[step.ptype]} ${sq(step.at.c,step.at.r)} is pinned — every move is poisoned</span><br>`;
+          movesEl.parentElement.scrollTop=movesEl.parentElement.scrollHeight;
+          renderBoard();
+          if(!skipRequested&&!reduced)await sleep(560);
+        } else {
+          renderBoard();
+          if(!skipRequested&&!reduced)await sleep(160);
+        }
+      } else {
+        renderBoard();
+        if(!skipRequested&&!reduced)await sleep(160);
+      }
+      continue;
+    }
+    if(pinnedSet.has(step.ev.pieceId))pinnedSet.delete(step.ev.pieceId);
+    activeId=step.ev.pieceId;
+    const e=step.ev;
+    const lp=livePieces.find(q=>q.id===e.pieceId);
+    if(e.captured){const cap=livePieces.find(q=>q.id===e.captured.id);if(cap)cap.alive=false}
+    lp.col=e.to.c;lp.row=e.to.r;
+    const nota=`${GLYPH[e.type]} ${sq(e.from.c,e.from.r)}${e.captured?'×':'–'}${sq(e.to.c,e.to.r)}${e.captured?' takes '+NAME[e.captured.type]:''}`;
+    movesEl.innerHTML+=`<span class="mv ${e.side}">${n++}. ${nota}</span><br>`;
+    movesEl.parentElement.scrollTop=movesEl.parentElement.scrollHeight;
+    renderBoard(e);
+    if(!skipRequested&&!reduced)await sleep(e.captured?620:430);
+  }
+  if(sim.timeout)movesEl.innerHTML+='<b>Round 20 — time. The house keeps the board.</b><br>';
+  if(sim.stalemate)movesEl.innerHTML+='<b>Dead position — no piece on either side will move again. The house keeps the board.</b><br>';
+  window.__lastSim=sim;playing=false;$('skipBtn').classList.add('hidden');$('resetBtn').disabled=false;$('spoilerBtn').disabled=false;
+  finish(sim.result);
+}
+
+function verdictFor(spend,par){
+  if(spend===par)return['Par. Perfect play.','That is the cheapest possible answer.'];
+  const over=spend-par;
+  if(over===1)return['Bogey — one over.','A cheaper answer exists. Feel like finding it?'];
+  if(over<=3)return[`${over} over par.`,'Won, but the club board would grumble. Trim the fat.'];
+  return[`${over} over par.`,'A win is a win. A cheaper win is a brag.'];
+}
+
+function finish(result){
+  mode='done';
+  const pz=PUZZLES[cur],spend=spendOf(),par=curPar();
+  const win=result==='win';
+  $('resultCard').classList.toggle('lost',!win);
+  if(win){
+    solved[cur]=true;
+    const[v,sub]=verdictFor(spend,par);
+    $('resTitle').textContent='Position won';
+    $('resVerdict').textContent=sub;
+    $('resScore').innerHTML=`${spend}<small> pts · par ${par} · ${v}</small>`;
+    $('shareBtn').classList.remove('hidden');
+    $('nextBtn').classList.toggle('hidden',cur>=PUZZLES.length-1);
+  }else{
+    $('resTitle').textContent='Position lost';
+    $('resVerdict').textContent=window.__lastSim&&window.__lastSim.stalemate?'Dead position — nobody left willing to move. You need a piece that can break through.':'Your force was eliminated — or the clock ran out. Study their ranges and go again.';
+    $('resScore').innerHTML=`—<small> par ${par} pts is out there</small>`;
+    $('shareBtn').classList.add('hidden');
+    $('nextBtn').classList.add('hidden');
+  }
+  $('shareOut').classList.add('hidden');
+  $('overlay').classList.remove('hidden');
+}
+
+let spoilerArmed=false;
+function disarmSpoiler(){spoilerArmed=false;const b=$('spoilerBtn');b.classList.remove('armed');b.textContent='Spoiler';}
+$('spoilerBtn').onclick=()=>{
+  if(playing||mode!=='place')return;
+  const b=$('spoilerBtn');
+  if(!spoilerArmed){spoilerArmed=true;b.classList.add('armed');b.textContent='Reveal par?';
+    flashMsg('This places the cheapest known setup on the board. Tap again to spoil \u2014 or Clear to keep hunting.');return;}
+  disarmSpoiler();
+  placed=curSol().map(p=>({...p}));
+  selType=null;threatFor=null;refresh();
+  flashMsg('<b>Par setup placed.</b> Press Start battle to watch why it works \u2014 then Clear and see if you can rediscover it cold.');
+};
+$('fightBtn').onclick=()=>{if(!playing&&placed.length)fight()};
+$('skipBtn').onclick=()=>{skipRequested=true};
+$('resetBtn').onclick=()=>{if(playing)return;placed=[];selType=null;threatFor=null;mode='place';pinnedSet=new Set();disarmSpoiler();refresh()};
+$('againBtn').onclick=()=>{$('overlay').classList.add('hidden');mode='place';pinnedSet=new Set();refresh()};
+$('nextBtn').onclick=()=>{$('overlay').classList.add('hidden');cur=Math.min(cur+1,PUZZLES.length-1);placed=[];selType=null;mode='place';disarmSpoiler();refresh()};
+$('shareBtn').onclick=async()=>{
+  const pz=PUZZLES[cur],spend=spendOf(),par=curPar();
+  const over=Math.max(0,spend-par);
+  const blocks='🟩'.repeat(par)+(over<=5?'🟨'.repeat(over):'🟨'.repeat(5)+'➕');
+  const txt=`♞ CHESSMATIC ${pz.name.split(' ·')[0]}${FORCED?'':' [club rules]'} ${blocks}`;
+  const ok=await copyText(txt);
+  const out=$('shareOut');
+  if(ok){
+    $('shareBtn').textContent='Copied!';
+    setTimeout(()=>$('shareBtn').textContent='Copy result',1500);
+  }else{
+    // can't reach the clipboard in this environment: show the text right here, pre-selected
+    out.value=txt;out.classList.remove('hidden');
+    out.focus();out.select();
+    $('shareBtn').textContent='Select & copy above';
+    setTimeout(()=>$('shareBtn').textContent='Copy result',2500);
+  }
+};
+async function copyText(txt){
+  try{
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(txt);
+      return true;
+    }
+  }catch(e){}
+  try{
+    const ta=document.createElement('textarea');
+    ta.value=txt;
+    ta.style.cssText='position:fixed;top:-1000px;opacity:0';
+    document.body.appendChild(ta);
+    ta.focus();ta.select();
+    const ok=document.execCommand('copy');
+    ta.remove();
+    if(ok)return true;
+  }catch(e){}
+  return false;
+}
+
+/* rule mode: shared by the Advanced Settings toggle and the hidden knight tap */
+function setForcedMode(f){
+  if(playing||FORCED===f){$('holdsToggle').checked=!FORCED;return}
+  FORCED=f;
+  placed=[];selType=null;threatFor=null;mode='place';pinnedSet=new Set();disarmSpoiler();
+  const tl=document.querySelector('.tagline');
+  tl.textContent=FORCED?'Chess Puzzle Autobattler':'Chess Puzzle Autobattler · club rules';
+  tl.style.color=FORCED?'':'#d9c078';
+  $('holdsToggle').checked=!FORCED;
+  refresh();
+  flashMsg(FORCED
+    ?'<b>Standard rules restored.</b> Every piece must act — anything that would pass makes its least-bad move. Pars have changed to match.'
+    :'<b>Club rules.</b> Pieces may stand their ground; a piece with no safe move is pinned (⊘) and freezes. Pars have changed to match.');
+}
+$('holdsToggle').addEventListener('change',e=>setForcedMode(!e.target.checked));
+(()=>{let taps=0,timer=null;
+$('knightToggle').addEventListener('click',()=>{
+  if(playing)return;
+  taps++;clearTimeout(timer);timer=setTimeout(()=>taps=0,1600);
+  if(taps<5)return;
+  taps=0;setForcedMode(!FORCED);
+});})();
+(async()=>{
+  let data=JSON.parse(document.getElementById('puzzleData').textContent);
+  try{
+    const r=await fetch('chessmatic-puzzles.json',{cache:'no-store'});
+    if(r.ok){const j=await r.json();if(j&&j.puzzles&&j.board)data=j;}
+  }catch(e){/* standalone file: embedded data is the source */}
+  applyData(data);
+  buildTray();refresh();
+})();
+</script>
+</body>
+</html>
