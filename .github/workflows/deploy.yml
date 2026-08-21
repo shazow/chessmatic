@@ -31,6 +31,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Test battle engine
+        run: node --test
+      - name: Verify puzzle pars
+        run: node solve-puzzles.js --check
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
