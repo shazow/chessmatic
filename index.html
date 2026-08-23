@@ -117,8 +117,8 @@
   .order{
     position:absolute;top:2px;left:2px;z-index:2;
     min-width:16px;height:16px;padding:0 4px;border-radius:8px;
-    display:flex;align-items:center;justify-content:center;
-    background:var(--ink);color:var(--paper);font:bold 10px/1 system-ui,sans-serif;
+    display:block;text-align:center;
+    background:var(--ink);color:var(--paper);font:bold 10px/16px system-ui,sans-serif;
     box-shadow:0 1px 2px rgba(0,0,0,.35);
   }
   .order.enemy{background:var(--signal)}
@@ -232,7 +232,7 @@
     </div>
   </div>
 
-  <div class="sheet" id="sheet"><span class="lbl">Scoresheet</span><div id="moves">Drag pieces onto your files (or tap to select, tap to place). Number badges show initiative. Tap an enemy piece to see its strike range. The house plays White and moves first.</div></div>
+  <div class="sheet" id="sheet"><span class="lbl">Scoresheet</span><div id="moves">Drag pieces onto your files (or tap to select, tap to place). Number badges show the global turn order. Tap an enemy piece to see its strike range. The house plays White and moves first.</div></div>
 
   <details>
     <summary>How the battle plays out</summary>
@@ -400,9 +400,9 @@ function piecesForRender(){
   if(playing||mode==='done')return livePieces;
   const player=placed.map((p,i)=>({...p,side:'player',alive:true,id:'p'+i}));
   const enemy=PUZZLES[cur].enemy.map((p,i)=>({...p,side:'enemy',alive:true,id:'e'+i}));
-  ENGINE.initiativeOrder(player,'player').forEach((p,i)=>p.order=i+1);
-  ENGINE.initiativeOrder(enemy,'enemy').forEach((p,i)=>p.order=i+1);
-  return [...player,...enemy];
+  const pieces=[...player,...enemy];
+  ENGINE.turnOrder(pieces).forEach((p,i)=>p.order=i+1);
+  return pieces;
 }
 
 let threatFor=null; // piece id whose threat range is shown
@@ -422,7 +422,7 @@ function renderBoard(lastMove){
       const p=at(ps,c,r);
       if(!p&&inDeploy(c)&&mode==='place')cell.classList.add('deploy-open');
       cell.setAttribute('aria-label',p
-        ?`${sq(c,r)}, ${p.side==='player'?'your':'enemy'} ${NAME[p.type]}${mode==='place'?`, initiative ${p.order}`:''}`
+        ?`${sq(c,r)}, ${p.side==='player'?'your':'enemy'} ${NAME[p.type]}${mode==='place'?`, turn ${p.order}`:''}`
         :sq(c,r));
       if(p){
         const g=document.createElement('span');
@@ -433,7 +433,7 @@ function renderBoard(lastMove){
           const order=document.createElement('span');
           order.className='order'+(p.side==='enemy'?' enemy':'');
           order.textContent=p.order;
-          order.title=`${p.side==='player'?'Your':'Enemy'} initiative ${p.order}`;
+          order.title=`Turn ${p.order}: ${p.side==='player'?'your':'enemy'} piece`;
           cell.appendChild(order);
         }
         if(selType===null&&mode==='place'&&placed.some((_,i)=>'p'+i===p.id))cell.classList.add('sel');
@@ -476,7 +476,7 @@ function refresh(){
   $('fightBtn').disabled=placed.length===0||playing;
   buildChips(); refreshTray(); renderBoard();
   if(mode==='place'&&!playing&&placed.length===0)
-    movesEl.innerHTML='Drag pieces onto files '+deployLabel()+' (or tap to select, tap to place). Number badges show the fixed front-to-back initiative. Tap an enemy piece to see its strike range. The house plays White and moves first.';
+    movesEl.innerHTML='Drag pieces onto files '+deployLabel()+' (or tap to select, tap to place). Number badges show the global turn order. Tap an enemy piece to see its strike range. The house plays White and moves first.';
 }
 
 

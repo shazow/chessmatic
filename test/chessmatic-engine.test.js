@@ -39,6 +39,36 @@ test('initiative runs front-to-back and breaks file ties by rank', () => {
   );
 });
 
+test('turn order uses one count while alternating enemy and player pieces', () => {
+  const pieces = [
+    { id: 'p0', type: 'P', side: 'player', col: 5, row: 2 },
+    { id: 'p1', type: 'R', side: 'player', col: 4, row: 0 },
+    { id: 'e0', type: 'P', side: 'enemy', col: 1, row: 0 },
+    { id: 'e1', type: 'N', side: 'enemy', col: 3, row: 2 },
+    { id: 'e2', type: 'R', side: 'enemy', col: 3, row: 0 },
+  ];
+
+  assert.deepEqual(
+    engine.turnOrder(pieces).map(piece => piece.id),
+    ['e2', 'p1', 'e1', 'p0', 'e0'],
+  );
+});
+
+test('simulation exposes global turn numbers on its initial pieces', () => {
+  const simulation = engine.simulate(
+    [{ type: 'P', col: 4, row: 0 }, { type: 'P', col: 5, row: 0 }],
+    [{ type: 'R', col: 3, row: 0 }, { type: 'P', col: 2, row: 0 }],
+    { roundLimit: 1 },
+  );
+
+  assert.deepEqual(
+    simulation.initialPieces
+      .sort((a, b) => a.order - b.order)
+      .map(piece => [piece.id, piece.order]),
+    [['e0', 1], ['p0', 2], ['e1', 3], ['p1', 4]],
+  );
+});
+
 test('every stored solution wins at its displayed par', () => {
   for (const puzzle of data.puzzles) {
     for (const [mode, forced] of [['club', false], ['forced', true]]) {

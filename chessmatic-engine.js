@@ -222,12 +222,22 @@
         || a.type.localeCompare(b.type));
     }
 
+    function turnOrder(pieces) {
+      const player = initiativeOrder(pieces.filter(piece => piece.side === 'player'), 'player');
+      const enemy = initiativeOrder(pieces.filter(piece => piece.side === 'enemy'), 'enemy');
+      const order = [];
+      for (let index = 0; index < Math.max(player.length, enemy.length); index++) {
+        if (enemy[index]) order.push(enemy[index]);
+        if (player[index]) order.push(player[index]);
+      }
+      return order;
+    }
+
     function prepareSide(setup, side, prefix) {
       const pieces = setup.map(piece => ({ ...piece, side, alive: true }));
       return initiativeOrder(pieces, side).map((piece, index) => ({
         ...piece,
         id: prefix + index,
-        order: index + 1,
       }));
     }
 
@@ -245,12 +255,10 @@
       const player = prepareSide(placements, 'player', 'p');
       const enemy = prepareSide(enemySetup, 'enemy', 'e');
       const pieces = [...player, ...enemy];
+      const initiativePieces = turnOrder(pieces);
+      initiativePieces.forEach((piece, index) => { piece.order = index + 1; });
       const initialPieces = pieces.map(piece => ({ ...piece }));
-      const initiative = [];
-      for (let index = 0; index < Math.max(player.length, enemy.length); index++) {
-        if (enemy[index]) initiative.push(enemy[index].id);
-        if (player[index]) initiative.push(player[index].id);
-      }
+      const initiative = initiativePieces.map(piece => piece.id);
       const events = [];
       const initialResult = battleStatus(pieces);
       if (initialResult) return { result: initialResult, events, initialPieces };
@@ -304,6 +312,7 @@
       legalMoves,
       simulate,
       threatSquares,
+      turnOrder,
     };
   }
 
