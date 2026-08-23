@@ -171,9 +171,6 @@
   details{background:rgba(0,0,0,.22);border-radius:10px;padding:10px 14px;font-size:13.5px;line-height:1.55;color:#cfe0d5}
   details summary{cursor:pointer;font-weight:600;letter-spacing:.06em;color:var(--paper)}
   details p{margin-top:8px}
-  label.toggle{display:flex;gap:10px;align-items:center;cursor:pointer;font-weight:600;color:var(--paper)}
-  label.toggle input{width:18px;height:18px;accent-color:var(--brass);cursor:pointer}
-  details .note{font-size:12.5px;color:#a8bfb1}
   details b{color:var(--brass)}
 
   .overlay{
@@ -204,7 +201,7 @@
 <body>
 <div class="wrap">
   <header>
-    <h1><span class="knight" id="knightToggle">♞</span>Chessmatic</h1>
+    <h1><span class="knight">♞</span>Chessmatic</h1>
     <div class="tagline">Chess Puzzle Autobattler</div>
   </header>
 
@@ -227,7 +224,7 @@
     <div class="btns">
       <button class="btn ghost spoiler" id="spoilerBtn">Spoiler</button>
       <button class="btn ghost" id="resetBtn">Clear</button>
-      <button class="btn ghost hidden" id="skipBtn">Skip ≫</button>
+      <button class="btn ghost hidden" id="finishBtn">Finish ≫</button>
       <button class="btn primary" id="fightBtn" disabled>Start battle</button>
     </div>
   </div>
@@ -236,19 +233,13 @@
 
   <details>
     <summary>How the battle plays out</summary>
-    <p>Initiative is deterministic: each side lines up front-to-back (closest to the enemy first), with the lower rank breaking same-file ties. The house is White and opens, then slots alternate: house #1, yours #1, house #2, yours #2… That schedule freezes at the bell — moving and capturing can’t reshuffle it.</p>
-    <p>Every survivor gets one slot per round; frozen pieces miss theirs. On a slot:</p>
+    <p>Turn order is deterministic: each side lines up front-to-back (closest to the enemy first), with the lower rank breaking same-file ties. The house is White and takes turn 1, then sides alternate: yours takes turn 2, the house takes turn 3, and so on. That schedule freezes at the bell — moving and capturing can’t reshuffle it.</p>
+    <p>Every survivor gets one turn per round; blocked pieces miss theirs. On a turn:</p>
     <p><b>1. Strike.</b> Take the highest-value allowed capture, using full chess range. Rooks, bishops, and queens reach as far as clear lines allow.</p>
     <p><b>2. Creep.</b> No strike? Take a safe move toward the nearest enemy. Sliders creep one square; knights leap normally.</p>
     <p><b>3. Mind the price tag.</b> A square is unsafe if an equal-or-cheaper enemy attacks it, or a pricier enemy attacks it with no ally defending it. A capture is still allowed through danger when its target costs at least as much as the attacker.</p>
-    <p>No safe advance? Standard rules force the least-bad legal move — even into trouble. <b>Club rules</b> let pieces hold; one with no safe move is pinned (⊘) until the position changes.</p>
-    <p>Eliminate every enemy within 20 rounds. A full round with no moves is an instant loss; so is reaching the limit with enemies standing. Your score is points spent. Hit par and you’ve found the cheapest solution under the active rules.</p>
-  </details>
-
-  <details class="advanced">
-    <summary>Advanced settings</summary>
-    <p><label class="toggle"><input type="checkbox" id="holdsToggle"> Pieces are allowed to skip moves (holds &amp; pins)</label></p>
-    <p class="note">By default every piece must act: anything that would stand still makes its least-bad move instead. Turning this on is the <b>club rules</b> variant — pieces may hold their ground, and a piece with no safe move is pinned (⊘) until the position changes. Every par changes with the rule; the par display, spoilers, and share text all follow whichever is active.</p>
+    <p>No safe advance? The piece makes its least-bad legal move — even into trouble. A piece with no legal move is pinned (⊘) until the position changes.</p>
+    <p>Eliminate every enemy within 20 rounds. A full round with no moves is an instant loss; so is reaching the limit with enemies standing. Your score is points spent. Hit par and you’ve found the cheapest solution.</p>
   </details>
 </div>
 
@@ -268,7 +259,7 @@
 
 <script type="application/json" id="puzzleData">
 {
-  "version": 1,
+  "version": 2,
   "board": { "cols": 8, "rows": 3 },
   "pieceCosts": { "P": 2, "N": 3, "B": 3, "R": 5, "Q": 9 },
   "sides": {
@@ -281,50 +272,40 @@
       "name": "№1 · Lone Rook",
       "desc": "Set your starting position and watch it play out.",
       "enemy": [ { "type": "R", "col": 0, "row": 1 } ],
-      "modes": {
-        "club":   { "par": 6, "solution": [ { "type": "P", "col": 4, "row": 1 }, { "type": "P", "col": 4, "row": 2 }, { "type": "P", "col": 5, "row": 0 } ] },
-        "forced": { "par": 4, "solution": [ { "type": "P", "col": 5, "row": 1 }, { "type": "P", "col": 6, "row": 0 } ] }
-      }
+      "par": 4,
+      "solution": [ { "type": "P", "col": 5, "row": 1 }, { "type": "P", "col": 6, "row": 0 } ]
     },
     {
       "id": "first-exchange",
       "name": "№2 · First Exchange",
       "desc": "A bishop behind a pawn screen. Something has to give.",
       "enemy": [ { "type": "B", "col": 1, "row": 1 }, { "type": "P", "col": 2, "row": 0 }, { "type": "P", "col": 2, "row": 2 } ],
-      "modes": {
-        "club":   { "par": 5, "solution": [ { "type": "R", "col": 4, "row": 1 } ] },
-        "forced": { "par": 5, "solution": [ { "type": "R", "col": 4, "row": 1 } ] }
-      }
+      "par": 5,
+      "solution": [ { "type": "R", "col": 4, "row": 1 } ]
     },
     {
       "id": "open-file",
       "name": "№3 · Open File",
       "desc": "The rook strikes first and owns its rank.",
       "enemy": [ { "type": "R", "col": 0, "row": 0 }, { "type": "P", "col": 2, "row": 1 }, { "type": "P", "col": 1, "row": 2 } ],
-      "modes": {
-        "club":   { "par": 5, "solution": [ { "type": "R", "col": 4, "row": 0 } ] },
-        "forced": { "par": 5, "solution": [ { "type": "B", "col": 4, "row": 0 }, { "type": "P", "col": 4, "row": 1 } ] }
-      }
+      "par": 5,
+      "solution": [ { "type": "B", "col": 4, "row": 0 }, { "type": "P", "col": 4, "row": 1 } ]
     },
     {
       "id": "her-majesty",
       "name": "№4 · Her Majesty",
       "desc": "Ten points of royalty. Beat her for less.",
       "enemy": [ { "type": "Q", "col": 1, "row": 1 }, { "type": "P", "col": 3, "row": 1 } ],
-      "modes": {
-        "club":   { "par": 7, "solution": [ { "type": "R", "col": 4, "row": 1 }, { "type": "P", "col": 4, "row": 2 } ] },
-        "forced": { "par": 7, "solution": [ { "type": "R", "col": 4, "row": 1 }, { "type": "P", "col": 4, "row": 2 } ] }
-      }
+      "par": 7,
+      "solution": [ { "type": "R", "col": 4, "row": 1 }, { "type": "P", "col": 4, "row": 2 } ]
     },
     {
       "id": "knight-errant",
       "name": "№5 · Knight Errant",
       "desc": "A knight roams ahead of a corner rook. The club’s final board.",
       "enemy": [ { "type": "N", "col": 2, "row": 1 }, { "type": "R", "col": 0, "row": 2 } ],
-      "modes": {
-        "club":   { "par": 7, "solution": [ { "type": "N", "col": 4, "row": 1 }, { "type": "P", "col": 4, "row": 2 }, { "type": "P", "col": 5, "row": 1 } ] },
-        "forced": { "par": 7, "solution": [ { "type": "N", "col": 4, "row": 0 }, { "type": "P", "col": 4, "row": 1 }, { "type": "P", "col": 5, "row": 1 } ] }
-      }
+      "par": 7,
+      "solution": [ { "type": "N", "col": 4, "row": 0 }, { "type": "P", "col": 4, "row": 1 }, { "type": "P", "col": 5, "row": 1 } ]
     }
   ]
 }
@@ -340,15 +321,13 @@ function applyData(data){
   DEP_MIN=data.sides.player.deploy[0]; DEP_MAX=data.sides.player.deploy[1];
   ENGINE=ChessmaticEngine.createEngine(data);
   PUZZLES=data.puzzles.map(p=>({name:p.name,desc:p.desc,enemy:p.enemy,
-    par:p.modes.club.par,sol:p.modes.club.solution,
-    parF:p.modes.forced.par,solF:p.modes.forced.solution}));
+    par:p.par,sol:p.solution}));
 }
 const inDeploy=c=>c>=DEP_MIN&&c<=DEP_MAX;
 const deployLabel=()=>'abcdefgh'[DEP_MIN]+'\u2013'+'abcdefgh'[DEP_MAX];
 const GLYPH={P:'♟',N:'♞',B:'♝',R:'♜',Q:'♛'};
 const NAME={P:'pawn',N:'knight',B:'bishop',R:'rook',Q:'queen'};
 
-let FORCED=true; // default: forced march — no piece may stand still. Toggle in Advanced settings.
 const at=(ps,c,r)=>ENGINE.at(ps,c,r);
 
 /* ================= puzzles (pars verified by brute-force solver) ================= */
@@ -356,14 +335,14 @@ const at=(ps,c,r)=>ENGINE.at(ps,c,r);
 
 /* ================= UI state ================= */
 let cur=0, placed=[], selType=null, mode='place', playing=false, solved=JSON.parse(sessionStorage.getItem?'null':'null')||{};
-let livePieces=[], skipRequested=false, pinnedSet=new Set(), activeId=null;
+let livePieces=[], finishRequested=false, pinnedSet=new Set(), activeId=null;
 
 const $=id=>document.getElementById(id);
 const boardEl=$('board'), trayEl=$('tray'), chipsEl=$('chips'), movesEl=$('moves');
 const fileOf=c=>'abcdefgh'[c], sq=(c,r)=>fileOf(c)+(r+1);
 const spendOf=()=>placed.reduce((s,p)=>s+COST[p.type],0);
-const curPar=()=>FORCED?PUZZLES[cur].parF:PUZZLES[cur].par;
-const curSol=()=>FORCED?PUZZLES[cur].solF:PUZZLES[cur].sol;
+const curPar=()=>PUZZLES[cur].par;
+const curSol=()=>PUZZLES[cur].sol;
 
 function buildChips(){
   chipsEl.innerHTML='';
@@ -565,11 +544,11 @@ const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 async function fight(){
   const pz=PUZZLES[cur];
-  const sim=ENGINE.simulate(placed.map(p=>({...p})),pz.enemy.map(p=>({...p})),{forced:FORCED});
+  const sim=ENGINE.simulate(placed.map(p=>({...p})),pz.enemy.map(p=>({...p})));
   // rebuild live board state and replay
   livePieces=sim.initialPieces.map(piece=>({...piece}));
-  playing=true;skipRequested=false;mode='battle';threatFor=null;
-  $('fightBtn').disabled=true;$('resetBtn').disabled=true;$('spoilerBtn').disabled=true;$('skipBtn').classList.remove('hidden');
+  playing=true;finishRequested=false;mode='battle';threatFor=null;
+  $('fightBtn').disabled=true;$('resetBtn').disabled=true;$('spoilerBtn').disabled=true;$('finishBtn').classList.remove('hidden');
   refreshTray();
   movesEl.innerHTML='<b>Battle begins.</b><br>';
   renderBoard();
@@ -579,21 +558,16 @@ async function fight(){
     if(step.round!==lastRound){lastRound=step.round;movesEl.innerHTML+=`<span class="lbl">— round ${step.round+1} —</span><br>`}
     if(!step.ev){
       activeId=step.pid;
-      if(step.pinned){
-        pinnedSet.add(step.pid);
-        if(!pinLogged.has(step.pid)){
-          pinLogged.add(step.pid);
-          movesEl.innerHTML+=`<span class="mv ${step.side}">⊘ ${GLYPH[step.ptype]} ${sq(step.at.c,step.at.r)} is pinned — every move is poisoned</span><br>`;
-          movesEl.parentElement.scrollTop=movesEl.parentElement.scrollHeight;
-          renderBoard();
-          if(!skipRequested&&!reduced)await sleep(560);
-        } else {
-          renderBoard();
-          if(!skipRequested&&!reduced)await sleep(160);
-        }
+      pinnedSet.add(step.pid);
+      if(!pinLogged.has(step.pid)){
+        pinLogged.add(step.pid);
+        movesEl.innerHTML+=`<span class="mv ${step.side}">⊘ ${GLYPH[step.ptype]} ${sq(step.at.c,step.at.r)} is pinned — no legal move</span><br>`;
+        movesEl.parentElement.scrollTop=movesEl.parentElement.scrollHeight;
+        renderBoard();
+        if(!finishRequested&&!reduced)await sleep(560);
       } else {
         renderBoard();
-        if(!skipRequested&&!reduced)await sleep(160);
+        if(!finishRequested&&!reduced)await sleep(160);
       }
       continue;
     }
@@ -607,11 +581,11 @@ async function fight(){
     movesEl.innerHTML+=`<span class="mv ${e.side}">${n++}. ${nota}</span><br>`;
     movesEl.parentElement.scrollTop=movesEl.parentElement.scrollHeight;
     renderBoard(e);
-    if(!skipRequested&&!reduced)await sleep(e.captured?620:430);
+    if(!finishRequested&&!reduced)await sleep(e.captured?620:430);
   }
   if(sim.timeout)movesEl.innerHTML+='<b>Round 20 — time. The house keeps the board.</b><br>';
   if(sim.stalemate)movesEl.innerHTML+='<b>Dead position — no piece on either side will move again. The house keeps the board.</b><br>';
-  window.__lastSim=sim;playing=false;$('skipBtn').classList.add('hidden');$('resetBtn').disabled=false;$('spoilerBtn').disabled=false;
+  window.__lastSim=sim;playing=false;$('finishBtn').classList.add('hidden');$('resetBtn').disabled=false;$('spoilerBtn').disabled=false;
   finish(sim.result);
 }
 
@@ -660,7 +634,7 @@ $('spoilerBtn').onclick=()=>{
   flashMsg('<b>Par setup placed.</b> Press Start battle to watch why it works \u2014 then Clear and see if you can rediscover it cold.');
 };
 $('fightBtn').onclick=()=>{if(!playing&&placed.length)fight()};
-$('skipBtn').onclick=()=>{skipRequested=true};
+$('finishBtn').onclick=()=>{finishRequested=true};
 $('resetBtn').onclick=()=>{if(playing)return;placed=[];selType=null;threatFor=null;mode='place';pinnedSet=new Set();disarmSpoiler();refresh()};
 $('againBtn').onclick=()=>{$('overlay').classList.add('hidden');mode='place';pinnedSet=new Set();refresh()};
 $('nextBtn').onclick=()=>{$('overlay').classList.add('hidden');cur=Math.min(cur+1,PUZZLES.length-1);placed=[];selType=null;mode='place';disarmSpoiler();refresh()};
@@ -668,7 +642,7 @@ $('shareBtn').onclick=async()=>{
   const pz=PUZZLES[cur],spend=spendOf(),par=curPar();
   const over=Math.max(0,spend-par);
   const blocks='🟩'.repeat(par)+(over<=5?'🟨'.repeat(over):'🟨'.repeat(5)+'➕');
-  const txt=`♞ CHESSMATIC ${pz.name.split(' ·')[0]}${FORCED?'':' [club rules]'} ${blocks}`;
+  const txt=`♞ CHESSMATIC ${pz.name.split(' ·')[0]} ${blocks}`;
   const ok=await copyText(txt);
   const out=$('shareOut');
   if(ok){
@@ -702,28 +676,6 @@ async function copyText(txt){
   return false;
 }
 
-/* rule mode: shared by the Advanced Settings toggle and the hidden knight tap */
-function setForcedMode(f){
-  if(playing||FORCED===f){$('holdsToggle').checked=!FORCED;return}
-  FORCED=f;
-  placed=[];selType=null;threatFor=null;mode='place';pinnedSet=new Set();disarmSpoiler();
-  const tl=document.querySelector('.tagline');
-  tl.textContent=FORCED?'Chess Puzzle Autobattler':'Chess Puzzle Autobattler · club rules';
-  tl.style.color=FORCED?'':'#d9c078';
-  $('holdsToggle').checked=!FORCED;
-  refresh();
-  flashMsg(FORCED
-    ?'<b>Standard rules restored.</b> Every piece must act — anything that would pass makes its least-bad move. Pars have changed to match.'
-    :'<b>Club rules.</b> Pieces may stand their ground; a piece with no safe move is pinned (⊘) and freezes. Pars have changed to match.');
-}
-$('holdsToggle').addEventListener('change',e=>setForcedMode(!e.target.checked));
-(()=>{let taps=0,timer=null;
-$('knightToggle').addEventListener('click',()=>{
-  if(playing)return;
-  taps++;clearTimeout(timer);timer=setTimeout(()=>taps=0,1600);
-  if(taps<5)return;
-  taps=0;setForcedMode(!FORCED);
-});})();
 (async()=>{
   let data=JSON.parse(document.getElementById('puzzleData').textContent);
   try{

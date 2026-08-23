@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "board": {
     "cols": 8,
     "rows": 3
@@ -39,43 +39,19 @@
           "row": 1
         }
       ],
-      "modes": {
-        "club": {
-          "par": 6,
-          "solution": [
-            {
-              "type": "P",
-              "col": 4,
-              "row": 1
-            },
-            {
-              "type": "P",
-              "col": 4,
-              "row": 2
-            },
-            {
-              "type": "P",
-              "col": 5,
-              "row": 0
-            }
-          ]
+      "par": 4,
+      "solution": [
+        {
+          "type": "P",
+          "col": 5,
+          "row": 1
         },
-        "forced": {
-          "par": 4,
-          "solution": [
-            {
-              "type": "P",
-              "col": 5,
-              "row": 1
-            },
-            {
-              "type": "P",
-              "col": 6,
-              "row": 0
-            }
-          ]
+        {
+          "type": "P",
+          "col": 6,
+          "row": 0
         }
-      }
+      ]
     },
     {
       "id": "first-exchange",
@@ -98,28 +74,14 @@
           "row": 2
         }
       ],
-      "modes": {
-        "club": {
-          "par": 5,
-          "solution": [
-            {
-              "type": "R",
-              "col": 4,
-              "row": 1
-            }
-          ]
-        },
-        "forced": {
-          "par": 5,
-          "solution": [
-            {
-              "type": "R",
-              "col": 4,
-              "row": 1
-            }
-          ]
+      "par": 5,
+      "solution": [
+        {
+          "type": "R",
+          "col": 4,
+          "row": 1
         }
-      }
+      ]
     },
     {
       "id": "open-file",
@@ -142,33 +104,19 @@
           "row": 2
         }
       ],
-      "modes": {
-        "club": {
-          "par": 5,
-          "solution": [
-            {
-              "type": "R",
-              "col": 4,
-              "row": 0
-            }
-          ]
+      "par": 5,
+      "solution": [
+        {
+          "type": "B",
+          "col": 4,
+          "row": 0
         },
-        "forced": {
-          "par": 5,
-          "solution": [
-            {
-              "type": "B",
-              "col": 4,
-              "row": 0
-            },
-            {
-              "type": "P",
-              "col": 4,
-              "row": 1
-            }
-          ]
+        {
+          "type": "P",
+          "col": 4,
+          "row": 1
         }
-      }
+      ]
     },
     {
       "id": "her-majesty",
@@ -186,38 +134,19 @@
           "row": 1
         }
       ],
-      "modes": {
-        "club": {
-          "par": 7,
-          "solution": [
-            {
-              "type": "R",
-              "col": 4,
-              "row": 1
-            },
-            {
-              "type": "P",
-              "col": 4,
-              "row": 2
-            }
-          ]
+      "par": 7,
+      "solution": [
+        {
+          "type": "R",
+          "col": 4,
+          "row": 1
         },
-        "forced": {
-          "par": 7,
-          "solution": [
-            {
-              "type": "R",
-              "col": 4,
-              "row": 1
-            },
-            {
-              "type": "P",
-              "col": 4,
-              "row": 2
-            }
-          ]
+        {
+          "type": "P",
+          "col": 4,
+          "row": 2
         }
-      }
+      ]
     },
     {
       "id": "knight-errant",
@@ -235,48 +164,24 @@
           "row": 2
         }
       ],
-      "modes": {
-        "club": {
-          "par": 7,
-          "solution": [
-            {
-              "type": "N",
-              "col": 4,
-              "row": 1
-            },
-            {
-              "type": "P",
-              "col": 4,
-              "row": 2
-            },
-            {
-              "type": "P",
-              "col": 5,
-              "row": 1
-            }
-          ]
+      "par": 7,
+      "solution": [
+        {
+          "type": "N",
+          "col": 4,
+          "row": 0
         },
-        "forced": {
-          "par": 7,
-          "solution": [
-            {
-              "type": "N",
-              "col": 4,
-              "row": 0
-            },
-            {
-              "type": "P",
-              "col": 4,
-              "row": 1
-            },
-            {
-              "type": "P",
-              "col": 5,
-              "row": 1
-            }
-          ]
+        {
+          "type": "P",
+          "col": 4,
+          "row": 1
+        },
+        {
+          "type": "P",
+          "col": 5,
+          "row": 1
         }
-      }
+      ]
     }
   ]
 }

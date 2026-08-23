@@ -69,34 +69,41 @@ test('simulation exposes global turn numbers on its initial pieces', () => {
   );
 });
 
+test('a piece takes its least-bad move when no legal move advances', () => {
+  const simulation = engine.simulate(
+    [{ type: 'P', col: 4, row: 0 }],
+    [{ type: 'P', col: 3, row: 2 }],
+    { roundLimit: 1 },
+  );
+  const playerEvent = simulation.events.find(event => event.side === 'player');
+
+  assert.ok(playerEvent && playerEvent.ev);
+  assert.deepEqual(playerEvent.ev.from, { c: 4, r: 0 });
+  assert.deepEqual(playerEvent.ev.to, { c: 3, r: 0 });
+});
+
 test('every stored solution wins at its displayed par', () => {
   for (const puzzle of data.puzzles) {
-    for (const [mode, forced] of [['club', false], ['forced', true]]) {
-      const { par, solution } = puzzle.modes[mode];
-      const spend = solution.reduce((total, piece) => total + data.pieceCosts[piece.type], 0);
-      assert.equal(spend, par, `${puzzle.id} ${mode} solution cost`);
-      assert.equal(
-        engine.simulate(solution, puzzle.enemy, { forced }).result,
-        'win',
-        `${puzzle.id} ${mode} solution result`,
-      );
-    }
+    const spend = puzzle.solution.reduce((total, piece) => total + data.pieceCosts[piece.type], 0);
+    assert.equal(spend, puzzle.par, `${puzzle.id} solution cost`);
+    assert.equal(
+      engine.simulate(puzzle.solution, puzzle.enemy).result,
+      'win',
+      `${puzzle.id} solution result`,
+    );
   }
 });
 
 test('placement and puzzle-data order cannot change a battle', () => {
   for (const puzzle of data.puzzles) {
-    for (const [mode, forced] of [['club', false], ['forced', true]]) {
-      const solution = puzzle.modes[mode].solution;
-      const expected = engine.simulate(solution, puzzle.enemy, { forced });
-      for (const playerOrder of permutations(solution)) {
-        for (const enemyOrder of permutations(puzzle.enemy)) {
-          assert.deepEqual(
-            engine.simulate(playerOrder, enemyOrder, { forced }),
-            expected,
-            `${puzzle.id} ${mode} changed with input order`,
-          );
-        }
+    const expected = engine.simulate(puzzle.solution, puzzle.enemy);
+    for (const playerOrder of permutations(puzzle.solution)) {
+      for (const enemyOrder of permutations(puzzle.enemy)) {
+        assert.deepEqual(
+          engine.simulate(playerOrder, enemyOrder),
+          expected,
+          `${puzzle.id} changed with input order`,
+        );
       }
     }
   }

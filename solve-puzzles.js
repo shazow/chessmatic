@@ -15,14 +15,14 @@ const COST = data.pieceCosts;
 const [DEP_MIN, DEP_MAX] = data.sides.player.deploy;
 const engine = createEngine(data);
 
-function solvePar(enemySetup, maxPieces = 3, forced = true) {
+function solvePar(enemySetup, maxPieces = 3) {
   const types = Object.keys(COST);
   const cells = [];
   for (let c = DEP_MIN; c <= DEP_MAX; c++) for (let r = 0; r < ROWS; r++) cells.push([c, r]);
   let best = Infinity, bestSol = null;
   (function rec(startCell, placements, cost) {
     if (cost >= best) return;
-    if (placements.length && engine.simulate(placements, enemySetup, { forced }).result === 'win') {
+    if (placements.length && engine.simulate(placements, enemySetup).result === 'win') {
       best = cost; bestSol = placements.map(p => ({ ...p }));
     }
     if (placements.length === maxPieces) return;
@@ -41,17 +41,15 @@ function solvePar(enemySetup, maxPieces = 3, forced = true) {
 
 let mismatches = 0;
 for (const pz of data.puzzles) {
-  for (const [modeName, forced] of [['club', false], ['forced', true]]) {
-    const { par, solution } = solvePar(pz.enemy, 3, forced);
-    const stored = pz.modes[modeName];
-    const same = stored && stored.par === par;
-    if (CHECK) {
-      console.log(`${pz.id} [${modeName}] stored par ${stored ? stored.par : '—'} | solved par ${par} ${same ? 'OK' : '** MISMATCH **'}`);
-      if (!same) mismatches++;
-    } else {
-      pz.modes[modeName] = { par, solution };
-      console.log(`${pz.id} [${modeName}] par ${par} | ${JSON.stringify(solution)}`);
-    }
+  const { par, solution } = solvePar(pz.enemy, 3);
+  const same = pz.par === par;
+  if (CHECK) {
+    console.log(`${pz.id} stored par ${pz.par ?? '—'} | solved par ${par} ${same ? 'OK' : '** MISMATCH **'}`);
+    if (!same) mismatches++;
+  } else {
+    pz.par = par;
+    pz.solution = solution;
+    console.log(`${pz.id} par ${par} | ${JSON.stringify(solution)}`);
   }
 }
 if (CHECK) process.exit(mismatches ? 1 : 0);

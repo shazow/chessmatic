@@ -142,7 +142,7 @@
       return best;
     }
 
-    function forcedFallback(piece, pieces, moves) {
+    function leastBadMove(piece, pieces, moves) {
       const scored = moves.map(move => ({
         move,
         unsafe: unsafeSquare(piece, move.c, move.r, pieces, move.cap) ? 1 : 0,
@@ -157,7 +157,7 @@
       return scored[0].move;
     }
 
-    function chooseAction(piece, pieces, forced) {
+    function chooseAction(piece, pieces) {
       const moves = legalMoves(piece, pieces);
       if (!moves.length) return { pinned: true };
 
@@ -181,7 +181,7 @@
         ) === 1);
       candidates = candidates.filter(move => !unsafeSquare(piece, move.c, move.r, pieces));
       if (!candidates.length) {
-        return forced ? { move: forcedFallback(piece, pieces, moves) } : { pinned: true };
+        return { move: leastBadMove(piece, pieces, moves) };
       }
 
       const scored = candidates.map(move => ({
@@ -194,11 +194,11 @@
         || (a.move.c - b.move.c)
         || (a.move.r - b.move.r));
       if (scored[0].distance < currentDistance) return { move: scored[0].move };
-      return forced ? { move: forcedFallback(piece, pieces, moves) } : { hold: true };
+      return { move: leastBadMove(piece, pieces, moves) };
     }
 
-    function actPiece(piece, pieces, forced) {
-      const action = chooseAction(piece, pieces, forced);
+    function actPiece(piece, pieces) {
+      const action = chooseAction(piece, pieces);
       if (!action.move) return action;
       const chosen = action.move;
       const event = {
@@ -250,7 +250,6 @@
     }
 
     function simulate(placements, enemySetup, options = {}) {
-      const forced = options.forced === undefined ? true : options.forced;
       const roundLimit = options.roundLimit || 20;
       const player = prepareSide(placements, 'player', 'p');
       const enemy = prepareSide(enemySetup, 'enemy', 'e');
@@ -268,7 +267,7 @@
         for (const pieceId of initiative) {
           const piece = pieces.find(candidate => candidate.id === pieceId);
           if (!piece || !piece.alive) continue;
-          const result = actPiece(piece, pieces, forced);
+          const result = actPiece(piece, pieces);
           if (result.pieceId) {
             actions++;
             events.push({ round, side: piece.side, ev: result });
@@ -277,7 +276,6 @@
               round,
               side: piece.side,
               ev: null,
-              pinned: !!result.pinned,
               pid: piece.id,
               ptype: piece.type,
               at: { c: piece.col, r: piece.row },
