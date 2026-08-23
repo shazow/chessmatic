@@ -1,8 +1,7 @@
 # chessmatic
 
-Chess Puzzle Autobattler
+Chessmatic is a chess puzzle autobattler designed to be a mobile-friendly PWA.
 
-Open `index.html` directly or serve the repository as a static site.
 
 ## Development
 
