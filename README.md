@@ -11,11 +11,3 @@ persistent storage.
 ## Development
 
 Use `devenv shell` to enter the development environment and `devenv test` to run all checks.
-
-```sh
-node --test
-node solve-puzzles.js --check
-```
-
-After changing engine rules or puzzle setups, rebake the external puzzle data with
-`node solve-puzzles.js`, then synchronize the embedded fallback data in `index.html`.

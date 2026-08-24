@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#22392e"/>
+  <circle cx="256" cy="256" r="202" fill="#1a2d24" stroke="#4a7a5e" stroke-width="12"/>
+  <text x="256" y="374" text-anchor="middle" font-family="DejaVu Sans, sans-serif" font-size="352" fill="#c9a227">♞</text>
+</svg>
