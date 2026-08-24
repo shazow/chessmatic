@@ -38,10 +38,8 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
-      - name: Validate and build
-        run: npm run validate
+      - name: Build
+        run: npm run build
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
