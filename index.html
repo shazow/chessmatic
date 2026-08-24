@@ -30,7 +30,7 @@
   .wrap{width:100%;max-width:520px;display:flex;flex-direction:column;gap:14px}
 
   /* ---------- header ---------- */
-  header{text-align:center}
+  header{text-align:center;position:relative}
   h1{
     font-family:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif;
     font-weight:600;font-size:30px;letter-spacing:.14em;text-transform:uppercase;
@@ -38,6 +38,7 @@
   }
   h1 .knight{color:var(--brass);letter-spacing:0;margin-right:.15em}
   .tagline{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#9db8a8;margin-top:2px}
+  .editor-launch{position:absolute;right:0;top:2px;padding:7px 11px}
 
   /* ---------- puzzle chips ---------- */
   .chips{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
@@ -57,6 +58,18 @@
   .mission b{font-family:Georgia,serif;font-size:17px}
   .mission .par{font-size:13px;color:#6b6353}
   .mission .par strong{color:var(--signal);font-size:16px}
+  .editor-form{
+    background:var(--paper);color:var(--ink);border-radius:10px;padding:12px 14px;
+    display:grid;grid-template-columns:1fr 80px;gap:10px;box-shadow:0 2px 0 rgba(0,0,0,.35);
+  }
+  .editor-form label{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#6b6353;text-align:left}
+  .editor-form label:first-child{grid-column:1}
+  .editor-form label:nth-child(2){grid-column:2}
+  .editor-form label:last-child{grid-column:1/-1}
+  .editor-form input{
+    display:block;width:100%;margin-top:4px;border:1px solid #b3a888;border-radius:6px;
+    background:#fbf6ea;color:var(--ink);font:inherit;font-size:14px;padding:8px;
+  }
 
   /* ---------- board ---------- */
   .board-shell{background:#111b15;border-radius:12px;padding:10px 10px 6px;box-shadow:inset 0 0 0 1px #3a5747,0 6px 18px rgba(0,0,0,.4)}
@@ -135,6 +148,7 @@
     box-shadow:0 2px 0 rgba(0,0,0,.35);font:inherit;
   }
   .slot .g{font-size:30px;line-height:1;color:var(--black-pc);-webkit-text-stroke:1px rgba(244,236,217,.3);text-shadow:0 1px 2px rgba(0,0,0,.18)}
+  .tray.enemy-tray .slot .g{color:var(--white-pc);-webkit-text-stroke:1px #4a4335;background:var(--felt);border-radius:5px;padding:2px 7px}
   .slot .c{font-size:12px;color:#6b6353;margin-top:2px}
   .slot[aria-pressed="true"]{outline:3px solid var(--brass);transform:translateY(1px)}
   .slot:disabled{opacity:.4;cursor:default}
@@ -154,6 +168,12 @@
   .btn.spoiler{color:#d9a79c;border-color:#8a5548}
   .btn.spoiler.armed{background:var(--signal);border-color:var(--signal);color:var(--paper)}
   .btn:focus-visible,.chip:focus-visible,.slot:focus-visible{outline:3px solid var(--paper);outline-offset:2px}
+  .puzzle-share{
+    background:rgba(0,0,0,.22);border-radius:10px;padding:10px 12px;
+    display:flex;gap:8px;align-items:center;
+  }
+  .puzzle-share input{flex:1;min-width:0;margin:0}
+  .puzzle-share .btn{white-space:nowrap}
 
   /* ---------- scoresheet ---------- */
   .sheet{
@@ -196,6 +216,10 @@
   @media (prefers-reduced-motion: reduce){
     .pc,.pc.pop{animation:none;transition:none}
   }
+  @media (max-width:430px){
+    header{padding-top:38px}
+    .editor-launch{top:0}
+  }
 </style>
 </head>
 <body>
@@ -203,6 +227,7 @@
   <header>
     <h1><span class="knight">♞</span>Chessmatic</h1>
     <div class="tagline">Chess Puzzle Autobattler</div>
+    <button class="btn ghost editor-launch" id="editorBtn">Editor</button>
   </header>
 
   <div class="chips" id="chips" role="group" aria-label="Choose a puzzle"></div>
@@ -210,6 +235,12 @@
   <div class="mission">
     <div><b id="pzName"></b><div class="par" id="pzDesc"></div></div>
     <div class="par">Par <strong id="pzPar"></strong> pts</div>
+  </div>
+
+  <div class="editor-form hidden" id="editorForm">
+    <label>Title<input id="editorName" maxlength="80"></label>
+    <label>Par<input id="editorPar" type="number" min="1" max="999" step="1" value="5"></label>
+    <label>Description<input id="editorDesc" maxlength="240"></label>
   </div>
 
   <div class="board-shell">
@@ -220,13 +251,18 @@
   <div class="tray" id="tray" role="group" aria-label="Pieces for hire"></div>
 
   <div class="hud">
-    <div class="spend">Spend <strong id="spend">0</strong> pts</div>
+    <div class="spend"><span id="spendLabel">Spend</span> <strong id="spend">0</strong> <span id="spendUnit">pts</span></div>
     <div class="btns">
       <button class="btn ghost spoiler" id="spoilerBtn">Spoiler</button>
       <button class="btn ghost" id="resetBtn">Clear</button>
       <button class="btn ghost hidden" id="finishBtn">Finish ≫</button>
       <button class="btn primary" id="fightBtn" disabled>Start battle</button>
     </div>
+  </div>
+
+  <div class="puzzle-share hidden" id="puzzleShare">
+    <input class="share-out" id="puzzleShareOut" readonly aria-label="Shareable puzzle link">
+    <button class="btn ghost" id="copyPuzzleBtn">Copy link</button>
   </div>
 
   <div class="sheet" id="sheet"><span class="lbl">Scoresheet</span><div id="moves">Drag pieces onto your files (or tap to select, tap to place). Number badges show the global turn order. Tap an enemy piece to see its strike range. The house plays White and moves first.</div></div>
@@ -311,20 +347,24 @@
 }
 </script>
 <script src="chessmatic-engine.js"></script>
+<script src="chessmatic-puzzle-link.js"></script>
 <script>
 /* ================= engine (data-driven; orientation comes from puzzleData) ================= */
-let COLS=8, ROWS=3, COST=null, DEP_MIN=4, DEP_MAX=7, ENGINE=null;
-let PUZZLES=[];
+let COLS=8, ROWS=3, COST=null, DEP_MIN=4, DEP_MAX=7, ENEMY_DEP_MIN=0, ENEMY_DEP_MAX=3, ENGINE=null;
+let PUZZLES=[], PUZZLE_DATA=null;
 function applyData(data){
+  PUZZLE_DATA=data;
   COLS=data.board.cols; ROWS=data.board.rows;
   COST=data.pieceCosts;
   DEP_MIN=data.sides.player.deploy[0]; DEP_MAX=data.sides.player.deploy[1];
+  ENEMY_DEP_MIN=data.sides.enemy.deploy[0]; ENEMY_DEP_MAX=data.sides.enemy.deploy[1];
   ENGINE=ChessmaticEngine.createEngine(data);
-  PUZZLES=data.puzzles.map(p=>({name:p.name,desc:p.desc,enemy:p.enemy,
-    par:p.par,sol:p.solution}));
+  PUZZLES=data.puzzles.map(p=>({id:p.id,name:p.name,desc:p.desc,enemy:p.enemy,
+    par:p.par,sol:p.solution||[],custom:false}));
 }
-const inDeploy=c=>c>=DEP_MIN&&c<=DEP_MAX;
-const deployLabel=()=>'abcdefgh'[DEP_MIN]+'\u2013'+'abcdefgh'[DEP_MAX];
+const activeDeploy=()=>mode==='editor'?[ENEMY_DEP_MIN,ENEMY_DEP_MAX]:[DEP_MIN,DEP_MAX];
+const inDeploy=c=>{const [min,max]=activeDeploy();return c>=min&&c<=max};
+const deployLabel=()=>{const [min,max]=activeDeploy();return 'abcdefgh'[min]+'\u2013'+'abcdefgh'[max]};
 const GLYPH={P:'♟',N:'♞',B:'♝',R:'♜',Q:'♛'};
 const NAME={P:'pawn',N:'knight',B:'bishop',R:'rook',Q:'queen'};
 
@@ -334,7 +374,7 @@ const at=(ps,c,r)=>ENGINE.at(ps,c,r);
 /* puzzles load from puzzleData JSON (or chessmatic-puzzles.json when hosted) */
 
 /* ================= UI state ================= */
-let cur=0, placed=[], selType=null, mode='place', playing=false, solved=JSON.parse(sessionStorage.getItem?'null':'null')||{};
+let cur=0, placed=[], editorPieces=[], selType=null, mode='place', playing=false, solved={};
 let livePieces=[], finishRequested=false, pinnedSet=new Set(), activeId=null;
 
 const $=id=>document.getElementById(id);
@@ -343,15 +383,18 @@ const fileOf=c=>'abcdefgh'[c], sq=(c,r)=>fileOf(c)+(r+1);
 const spendOf=()=>placed.reduce((s,p)=>s+COST[p.type],0);
 const curPar=()=>PUZZLES[cur].par;
 const curSol=()=>PUZZLES[cur].sol;
+const editing=()=>mode==='editor';
+const placementPieces=()=>editing()?editorPieces:placed;
 
 function buildChips(){
   chipsEl.innerHTML='';
   PUZZLES.forEach((pz,i)=>{
     const b=document.createElement('button');
     b.className='chip'+(solved[i]?' solved':'');
-    b.textContent='I II III IV V'.split(' ')[i];
+    b.textContent=pz.custom?'Custom':(['I','II','III','IV','V'][i]||String(i+1));
     b.setAttribute('aria-pressed',i===cur);
-    b.onclick=()=>{if(playing)return;cur=i;placed=[];selType=null;disarmSpoiler();refresh()};
+    b.onclick=()=>{if(playing||editing())return;cur=i;placed=[];selType=null;disarmSpoiler();
+      if(pz.custom&&pz.shareCode)showPuzzleLink(pz.shareCode);else{clearPuzzleHash();$('puzzleShare').classList.add('hidden')}refresh()};
     chipsEl.appendChild(b);
   });
 }
@@ -369,6 +412,7 @@ function buildTray(){
   }
 }
 function refreshTray(){
+  trayEl.classList.toggle('enemy-tray',editing());
   for(const b of trayEl.children){
     b.setAttribute('aria-pressed',String(b.dataset.type===selType));
     b.disabled=playing;
@@ -376,6 +420,7 @@ function refreshTray(){
 }
 
 function piecesForRender(){
+  if(editing())return editorPieces.map((p,i)=>({...p,side:'enemy',alive:true,id:'e'+i}));
   if(playing||mode==='done')return livePieces;
   const player=placed.map((p,i)=>({...p,side:'player',alive:true,id:'p'+i}));
   const enemy=PUZZLES[cur].enemy.map((p,i)=>({...p,side:'enemy',alive:true,id:'e'+i}));
@@ -395,11 +440,11 @@ function renderBoard(lastMove){
     for(let c=0;c<COLS;c++){
       const cell=document.createElement('button');
       cell.dataset.c=c;cell.dataset.r=r;
-      cell.className='cell '+((c+r)%2?'light':'dark')+(inDeploy(c)&&mode==='place'?' deploy':'');
+      cell.className='cell '+((c+r)%2?'light':'dark')+(inDeploy(c)&&(mode==='place'||editing())?' deploy':'');
       if(threats.has(c+','+r))cell.classList.add('threat');
       if(lastMove&&((lastMove.to.c===c&&lastMove.to.r===r)))cell.classList.add('lastmove');
       const p=at(ps,c,r);
-      if(!p&&inDeploy(c)&&mode==='place')cell.classList.add('deploy-open');
+      if(!p&&inDeploy(c)&&(mode==='place'||editing()))cell.classList.add('deploy-open');
       cell.setAttribute('aria-label',p
         ?`${sq(c,r)}, ${p.side==='player'?'your':'enemy'} ${NAME[p.type]}${mode==='place'?`, turn ${p.order}`:''}`
         :sq(c,r));
@@ -415,8 +460,9 @@ function renderBoard(lastMove){
           order.title=`Turn ${p.order}: ${p.side==='player'?'your':'enemy'} piece`;
           cell.appendChild(order);
         }
-        if(selType===null&&mode==='place'&&placed.some((_,i)=>'p'+i===p.id))cell.classList.add('sel');
-        if(mode==='place'&&!playing&&p.side==='player')
+        const ownPlacement=(mode==='place'&&p.side==='player')||(editing()&&p.side==='enemy');
+        if(selType===null&&ownPlacement)cell.classList.add('sel');
+        if(!playing&&ownPlacement)
           cell.addEventListener('pointerdown',e=>startDrag(e,{kind:'board',index:Number(p.id.slice(1)),type:p.type},cell));
         if((playing||mode==='done')&&pinnedSet.has(p.id)){const pin=document.createElement('span');pin.className='pin';pin.title='Pinned: every move is poisoned';cell.appendChild(pin)}
         if((playing||mode==='done')&&p.id===activeId){const t=document.createElement('span');t.className='turn'+(p.side==='enemy'?' enemy':'');t.title=p.side==='player'?'Your piece just acted':'Their piece just acted';cell.appendChild(t)}
@@ -430,15 +476,16 @@ function renderBoard(lastMove){
 function onCell(c,r,p){
   if(playing)return;
   if(p){ // toggle threat preview / remove own piece
-    if(p.side==='player'&&mode==='place'&&!selType){
-      const i=Number(p.id.slice(1)); placed.splice(i,1); threatFor=null; refresh(); return;
+    const ownPlacement=(p.side==='player'&&mode==='place')||(p.side==='enemy'&&editing());
+    if(ownPlacement&&!selType){
+      const i=Number(p.id.slice(1)); placementPieces().splice(i,1); threatFor=null; refresh(); return;
     }
     threatFor=threatFor===p.id?null:p.id; renderBoard(); logHint(p); return;
   }
   threatFor=null;
-  if(mode!=='place'||!selType)return void renderBoard();
+  if((mode!=='place'&&!editing())||!selType)return void renderBoard();
   if(!inDeploy(c)){flashMsg('Deploy on files '+deployLabel()+' only.');return}
-  placed.push({type:selType,col:c,row:r});
+  placementPieces().push({type:selType,col:c,row:r});
   refresh();
 }
 
@@ -449,7 +496,21 @@ function logHint(p){
 function flashMsg(t){movesEl.innerHTML=t}
 
 function refresh(){
+  if(editing()){
+    $('chips').classList.add('hidden');document.querySelector('.mission').classList.add('hidden');
+    $('editorForm').classList.remove('hidden');$('editorBtn').textContent='Cancel';
+    $('spendLabel').textContent='Enemy force';$('spend').textContent=editorPieces.length;$('spendUnit').textContent=editorPieces.length===1?'piece':'pieces';
+    $('spoilerBtn').classList.add('hidden');$('finishBtn').classList.add('hidden');
+    $('fightBtn').textContent='Save';$('fightBtn').disabled=editorPieces.length===0;
+    buildChips();refreshTray();renderBoard();
+    if(editorPieces.length===0)movesEl.innerHTML='Build the house force on files '+deployLabel()+'. Drag a piece from the tray, or tap it and then tap a square.';
+    return;
+  }
   const pz=PUZZLES[cur];
+  $('chips').classList.remove('hidden');document.querySelector('.mission').classList.remove('hidden');
+  $('editorForm').classList.add('hidden');$('editorBtn').textContent='Editor';
+  $('spendLabel').textContent='Spend';$('spendUnit').textContent='pts';
+  $('spoilerBtn').classList.toggle('hidden',!pz.sol.length);$('fightBtn').textContent='Start battle';
   $('pzName').textContent=pz.name; $('pzDesc').textContent=pz.desc; $('pzPar').textContent=curPar();
   $('spend').textContent=spendOf();
   $('fightBtn').disabled=placed.length===0||playing;
@@ -464,14 +525,16 @@ let justDragged=false, ghost=null;
 function validDropCells(src){
   const out=new Set();
   const ps=piecesForRender();
-  for(let c=DEP_MIN;c<=DEP_MAX;c++)for(let r=0;r<ROWS;r++){
-    const occ=ps.some(q=>q.alive&&q.col===c&&q.row===r&&!(src.kind==='board'&&q.id==='p'+src.index));
+  const [deployMin,deployMax]=activeDeploy();
+  const prefix=editing()?'e':'p';
+  for(let c=deployMin;c<=deployMax;c++)for(let r=0;r<ROWS;r++){
+    const occ=ps.some(q=>q.alive&&q.col===c&&q.row===r&&!(src.kind==='board'&&q.id===prefix+src.index));
     if(!occ)out.add(c+','+r);
   }
   return out;
 }
 function startDrag(e,src,el){
-  if(playing||mode!=='place')return;
+  if(playing||(mode!=='place'&&!editing()))return;
   if(e.pointerType==='mouse'&&e.button!==0)return;
   const sx=e.clientX, sy=e.clientY;
   let dragging=false, valid=null, hoverCell=null;
@@ -493,7 +556,10 @@ function startDrag(e,src,el){
       }
       ghost=document.createElement('div');
       ghost.textContent=GLYPH[src.type];
-      ghost.style.cssText='position:fixed;z-index:99;pointer-events:none;font-size:40px;transform:translate(-50%,-60%);color:var(--black-pc);-webkit-text-stroke:1px rgba(244,236,217,.4);text-shadow:0 0 8px rgba(244,236,217,.45),0 3px 8px rgba(0,0,0,.5)';
+      const ghostColor=editing()
+        ?'color:var(--white-pc);-webkit-text-stroke:1px #4a4335;'
+        :'color:var(--black-pc);-webkit-text-stroke:1px rgba(244,236,217,.4);';
+      ghost.style.cssText='position:fixed;z-index:99;pointer-events:none;font-size:40px;transform:translate(-50%,-60%);'+ghostColor+'text-shadow:0 0 8px rgba(244,236,217,.45),0 3px 8px rgba(0,0,0,.5)';
       document.body.appendChild(ghost);
       if(src.kind==='board'){const pc=el.querySelector('.pc');if(pc)pc.style.opacity='.25'}
     }
@@ -517,8 +583,9 @@ function startDrag(e,src,el){
     if(cell){
       const c=Number(cell.dataset.c), r=Number(cell.dataset.r);
       if(valid.has(c+','+r)){
-        if(src.kind==='tray')placed.push({type:src.type,col:c,row:r});
-        else{placed[src.index].col=c;placed[src.index].row=r}
+        const targets=placementPieces();
+        if(src.kind==='tray')targets.push({type:src.type,col:c,row:r});
+        else{targets[src.index].col=c;targets[src.index].row=r}
         threatFor=null;refresh();return;
       }
       // invalid square: snap back, never delete
@@ -528,7 +595,7 @@ function startDrag(e,src,el){
     }
     // released off the board entirely
     if(src.kind==='board'){
-      placed.splice(src.index,1);
+      placementPieces().splice(src.index,1);
       flashMsg('Piece returned to the box.');
     }
     threatFor=null;refresh();
@@ -589,8 +656,9 @@ async function fight(){
   finish(sim.result);
 }
 
-function verdictFor(spend,par){
-  if(spend===par)return['Par. Perfect play.','That is the cheapest possible answer.'];
+function verdictFor(spend,par,isCustom){
+  if(spend<par)return[`${par-spend} under par.`,isCustom?'You beat the puzzle’s stated target.':'You found a new club record.'];
+  if(spend===par)return['Par. Perfect play.',isCustom?'You matched the puzzle’s stated target.':'That is the cheapest possible answer.'];
   const over=spend-par;
   if(over===1)return['Bogey — one over.','A cheaper answer exists. Feel like finding it?'];
   if(over<=3)return[`${over} over par.`,'Won, but the club board would grumble. Trim the fat.'];
@@ -604,7 +672,7 @@ function finish(result){
   $('resultCard').classList.toggle('lost',!win);
   if(win){
     solved[cur]=true;
-    const[v,sub]=verdictFor(spend,par);
+    const[v,sub]=verdictFor(spend,par,pz.custom);
     $('resTitle').textContent='Position won';
     $('resVerdict').textContent=sub;
     $('resScore').innerHTML=`${spend}<small> pts · par ${par} · ${v}</small>`;
@@ -613,7 +681,7 @@ function finish(result){
   }else{
     $('resTitle').textContent='Position lost';
     $('resVerdict').textContent=window.__lastSim&&window.__lastSim.stalemate?'Dead position — nobody left willing to move. You need a piece that can break through.':'Your force was eliminated — or the clock ran out. Study their ranges and go again.';
-    $('resScore').innerHTML=`—<small> par ${par} pts is out there</small>`;
+    $('resScore').innerHTML=`—<small>${pz.custom?'target':'par'} ${par} pts</small>`;
     $('shareBtn').classList.add('hidden');
     $('nextBtn').classList.add('hidden');
   }
@@ -633,15 +701,81 @@ $('spoilerBtn').onclick=()=>{
   selType=null;threatFor=null;refresh();
   flashMsg('<b>Par setup placed.</b> Press Start battle to watch why it works \u2014 then Clear and see if you can rediscover it cold.');
 };
-$('fightBtn').onclick=()=>{if(!playing&&placed.length)fight()};
+
+function setPuzzleHash(code){
+  const url=ChessmaticPuzzleLink.buildPuzzleUrl(location,code);
+  try{history.replaceState(null,'',url)}catch(error){location.hash='?puzzle='+code}
+  return url;
+}
+function clearPuzzleHash(){
+  if(!ChessmaticPuzzleLink.puzzleFromHash(location.hash))return;
+  try{history.replaceState(null,'',location.href.split('#')[0])}catch(error){location.hash=''}
+}
+function installCustomPuzzle(puzzle,shareCode){
+  PUZZLES=PUZZLES.filter(candidate=>!candidate.custom);
+  PUZZLES.push({
+    id:'shared-puzzle',name:puzzle.name,desc:puzzle.desc,par:puzzle.par,
+    enemy:puzzle.enemy.map(piece=>({...piece})),sol:[],custom:true,shareCode,
+  });
+  cur=PUZZLES.length-1;
+}
+function showPuzzleLink(code){
+  const url=setPuzzleHash(code);
+  $('puzzleShareOut').value=url;
+  $('puzzleShare').classList.remove('hidden');
+  return url;
+}
+async function saveEditorPuzzle(){
+  try{
+    const puzzle={
+      name:$('editorName').value,
+      desc:$('editorDesc').value,
+      par:Number($('editorPar').value),
+      enemy:editorPieces.map(piece=>({...piece})),
+    };
+    const code=ChessmaticPuzzleLink.encodePuzzle(puzzle,PUZZLE_DATA);
+    const clean=ChessmaticPuzzleLink.decodePuzzle(code,PUZZLE_DATA);
+    installCustomPuzzle(clean,code);
+    mode='place';placed=[];selType=null;threatFor=null;
+    const url=showPuzzleLink(code);
+    refresh();
+    const copied=await copyText(url);
+    flashMsg(copied
+      ?'<b>Puzzle saved and link copied.</b> Set your force, then test the battle.'
+      :'<b>Puzzle saved.</b> Use Copy link to share it, then set your force and test the battle.');
+    if(copied){$('copyPuzzleBtn').textContent='Copied!';setTimeout(()=>$('copyPuzzleBtn').textContent='Copy link',1500)}
+  }catch(error){
+    flashMsg(error.message||'The puzzle could not be saved.');
+  }
+}
+function startEditor(){
+  if(playing)return;
+  $('overlay').classList.add('hidden');$('puzzleShare').classList.add('hidden');
+  mode='editor';editorPieces=[];selType=null;threatFor=null;disarmSpoiler();refresh();
+}
+function cancelEditor(){
+  mode='place';editorPieces=[];selType=null;threatFor=null;refresh();
+}
+
+$('editorBtn').onclick=()=>editing()?cancelEditor():startEditor();
+$('fightBtn').onclick=()=>{if(editing())saveEditorPuzzle();else if(!playing&&placed.length)fight()};
 $('finishBtn').onclick=()=>{finishRequested=true};
-$('resetBtn').onclick=()=>{if(playing)return;placed=[];selType=null;threatFor=null;mode='place';pinnedSet=new Set();disarmSpoiler();refresh()};
+$('resetBtn').onclick=()=>{if(playing)return;if(editing())editorPieces=[];else placed=[];selType=null;threatFor=null;pinnedSet=new Set();disarmSpoiler();refresh()};
 $('againBtn').onclick=()=>{$('overlay').classList.add('hidden');mode='place';pinnedSet=new Set();refresh()};
-$('nextBtn').onclick=()=>{$('overlay').classList.add('hidden');cur=Math.min(cur+1,PUZZLES.length-1);placed=[];selType=null;mode='place';disarmSpoiler();refresh()};
+$('nextBtn').onclick=()=>{$('overlay').classList.add('hidden');cur=Math.min(cur+1,PUZZLES.length-1);placed=[];selType=null;mode='place';disarmSpoiler();
+  const pz=PUZZLES[cur];if(pz.custom&&pz.shareCode)setPuzzleHash(pz.shareCode);else clearPuzzleHash();refresh()};
+$('copyPuzzleBtn').onclick=async()=>{
+  const input=$('puzzleShareOut');
+  if(await copyText(input.value)){
+    $('copyPuzzleBtn').textContent='Copied!';setTimeout(()=>$('copyPuzzleBtn').textContent='Copy link',1500);
+  }else{input.focus();input.select();$('copyPuzzleBtn').textContent='Select & copy';}
+};
 $('shareBtn').onclick=async()=>{
   const pz=PUZZLES[cur],spend=spendOf(),par=curPar();
   const over=Math.max(0,spend-par);
-  const blocks='🟩'.repeat(par)+(over<=5?'🟨'.repeat(over):'🟨'.repeat(5)+'➕');
+  const blocks=par<=20
+    ?'🟩'.repeat(par)+(over<=5?'🟨'.repeat(over):'🟨'.repeat(5)+'➕')
+    :`par ${par}${over?' +'+over:''}`;
   const txt=`♞ CHESSMATIC ${pz.name.split(' ·')[0]} ${blocks}`;
   const ok=await copyText(txt);
   const out=$('shareOut');
@@ -683,7 +817,19 @@ async function copyText(txt){
     if(r.ok){const j=await r.json();if(j&&j.puzzles&&j.board)data=j;}
   }catch(e){/* standalone file: embedded data is the source */}
   applyData(data);
+  let loadMessage='';
+  const sharedCode=ChessmaticPuzzleLink.puzzleFromHash(location.hash);
+  if(sharedCode){
+    try{
+      const sharedPuzzle=ChessmaticPuzzleLink.decodePuzzle(sharedCode,data);
+      installCustomPuzzle(sharedPuzzle,sharedCode);
+    }catch(error){
+      loadMessage='The shared puzzle link is invalid, so the first club puzzle was loaded instead.';
+    }
+  }
   buildTray();refresh();
+  if(sharedCode&&PUZZLES[cur].custom)showPuzzleLink(sharedCode);
+  if(loadMessage)flashMsg(loadMessage);
 })();
 </script>
 </body>
