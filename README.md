@@ -10,7 +10,7 @@ persistent storage.
 
 ## Development
 
-Run the engine regression tests and verify the stored puzzle pars:
+Use `devenv shell` to enter the development environment and `devenv test` to run all checks.
 
 ```sh
 node --test
