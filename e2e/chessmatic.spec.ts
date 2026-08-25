@@ -19,10 +19,17 @@ test('places the optimal setup and completes a battle', async ({ page }) => {
 
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.getByRole('button', { name: 'Play', exact: true }).click();
-  const dialog = page.getByRole('dialog');
-  await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole('heading', { name: 'Position won' })).toBeVisible();
-  await expect(dialog).toContainText('That is the cheapest possible answer.');
+  const sheet = page.locator('.sheet');
+  await expect(sheet).toContainText('Position won');
+  await expect(sheet).toContainText('That is the cheapest possible answer.');
+  await expect(page.locator('.board-shell')).toHaveClass(/won/);
+  await expect(page.getByRole('button', { name: '🏆 Next Puzzle' })).toBeVisible();
+
+  await page.reload();
+  const solvedChip = page.getByRole('button', { name: new RegExp(`^I ?${data.puzzles[0].optimalCost}$`) });
+  await expect(solvedChip).toBeVisible();
+  await expect(solvedChip).toHaveAttribute('title', `Solved — best ${data.puzzles[0].optimalCost} pts`);
+  await expect(page.getByRole('button', { name: 'II', exact: true })).toHaveAttribute('title', 'Start here');
 });
 
 test('steps through the scoresheet and scrubs the previous run', async ({ page }) => {
@@ -31,10 +38,14 @@ test('steps through the scoresheet and scrubs the previous run', async ({ page }
   await page.getByRole('button', { name: 'Spoiler' }).click();
   await page.getByRole('button', { name: 'Reveal optimal?' }).click();
   await page.getByRole('button', { name: 'Play', exact: true }).click();
-  const dialog = page.getByRole('dialog');
-  await expect(dialog).toBeVisible();
-  await dialog.getByRole('button', { name: 'Close' }).click();
-  await expect(dialog).toBeHidden();
+  const sheet = page.locator('.sheet');
+  await expect(sheet).toContainText('Position won');
+
+  const collapsedHeight = (await sheet.boundingBox())!.height;
+  await page.getByRole('button', { name: 'Resize scoresheet' }).click();
+  const expandedHeight = (await sheet.boundingBox())!.height;
+  expect(expandedHeight).toBeGreaterThan(collapsedHeight * 2);
+  await page.getByRole('button', { name: 'Resize scoresheet' }).click();
 
   const firstMove = page.locator('.sheet button.mv').first();
   await firstMove.click();
@@ -51,6 +62,27 @@ test('steps through the scoresheet and scrubs the previous run', async ({ page }
   await expect(firstMove).not.toHaveClass(/sel/);
   await firstMove.click();
   await expect(firstMove).toHaveClass(/sel/);
+
+  await page.getByRole('button', { name: 'Spoiler' }).click();
+  await page.getByRole('button', { name: 'Reveal optimal?' }).click();
+  await expect(page.locator('.sheet')).toContainText('Optimal setup placed');
+  await expect(page.getByRole('button', { name: 'Clear' })).toBeVisible();
+});
+
+test('marks a loss on the board and scoresheet without a dialog', async ({ page }) => {
+  await page.goto(appPath);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.getByRole('button', { name: 'IV', exact: true }).click();
+  await page.getByRole('button', { name: /pawn · 2/i }).click();
+  await page.getByRole('gridcell', { name: 'h1' }).click();
+  await page.getByRole('button', { name: 'Play', exact: true }).click();
+  await expect(page.locator('.sheet')).toContainText('Position lost');
+  await expect(page.locator('.board-shell')).toHaveClass(/lost/);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Reset', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
+  await expect(page.getByRole('gridcell', { name: /h1, your pawn, turn/ })).toBeVisible();
 });
 
 test('loads a shared replay link with the solution pre-placed', async ({ page }) => {
@@ -66,7 +98,7 @@ test('loads a shared replay link with the solution pre-placed', async ({ page })
   await expect(page.getByText('Shared Replay')).toBeVisible();
   await expect(page.getByText(/shared solution/)).toBeVisible();
   await page.getByRole('button', { name: 'Play', exact: true }).click();
-  await expect(page.getByRole('dialog').getByRole('heading', { name: 'Position won' })).toBeVisible();
+  await expect(page.locator('.sheet')).toContainText('Position won');
 });
 
 test('creates and loads a custom puzzle from its hash route', async ({ page }) => {

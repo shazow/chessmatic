@@ -30,7 +30,6 @@
     GLYPH,
     PIECE_NAME,
     fileOf,
-    resultShareText,
     squareName,
     toRoman,
     verdictFor,
@@ -53,18 +52,6 @@
   }
 
   type AppPuzzle = OfficialAppPuzzle | GeneratedAppPuzzle | SharedAppPuzzle;
-
-  interface ResultView {
-    win: boolean;
-    title: string;
-    verdict: string;
-    spend: number;
-    benchmark: number;
-    benchmarkLabel: 'par' | 'target';
-    scoreVerdict: string;
-    canShare: boolean;
-    canNext: boolean;
-  }
 
   type LogEntry =
     | { kind: 'note'; html: string }
@@ -96,11 +83,10 @@
   let selectedType = $state<PieceType | null>(null);
   let mode = $state<GameMode>('place');
   let playing = $state(false);
-  let solved = $state<Record<number, boolean>>({});
+  let progress = $state<Record<string, number>>(readProgress());
   let lastRun = $state<Simulation | null>(null);
   let cursor = $state(0);
   let maxSeen = $state(0);
-  let resultShown = false;
   let playTimer: number | null = null;
   let reduceMotionRun = false;
   let shareCopied = $state(false);
@@ -111,15 +97,14 @@
   let spoilerArmed = $state(false);
   let shareUrl = $state('');
   let messageHtml = $state('');
-  let resultView = $state<ResultView | null>(null);
-  let resultShareFallback = $state('');
   let editorName = $state('');
   let editorDesc = $state('');
   let editorTarget = $state(5);
   let drag = $state<DragState | null>(null);
   let howToOpen = $state(readHowToOpen());
+  let sheetHeight = $state<number | null>(null);
+  let sheetDragged = false;
   let suppressClick = false;
-  let resultCard = $state<HTMLDivElement | undefined>();
 
   let currentPuzzle = $derived(puzzles[currentIndex]);
   let editing = $derived(mode === 'editor');
@@ -127,8 +112,13 @@
     ? data.sides.enemy.deploy
     : data.sides.player.deploy) as [number, number]);
   let spend = $derived(placed.reduce((total, piece) => total + data.pieceCosts[piece.type], 0));
+  let nextPuzzleId = $derived(
+    puzzles.slice(0, officialPuzzleCount).find((puzzle) => progress[puzzle.id] === undefined)?.id ?? null,
+  );
   let inRun = $derived(mode === 'battle' || mode === 'done');
   let atEnd = $derived(lastRun !== null && cursor >= lastRun.events.length);
+  let outcome = $derived(inRun && atEnd && lastRun ? lastRun.result : null);
+  let canNext = $derived(currentPuzzle.kind === 'official' && currentIndex < officialPuzzleCount - 1);
   let runView = $derived.by(() => (lastRun ? boardStateAt(lastRun, cursor) : null));
   let battleLog = $derived.by(buildBattleLog);
   let visiblePieces = $derived.by(piecesForRender);
@@ -136,12 +126,6 @@
     if (!threatFor) return new Set<string>();
     const piece = visiblePieces.find((candidate) => candidate.id === threatFor && candidate.alive);
     return piece ? engine.threatSquares(piece, visiblePieces) : new Set<string>();
-  });
-
-  $effect(() => {
-    if (resultView && resultCard) {
-      void tick().then(() => resultCard?.focus());
-    }
   });
 
   function piecesForRender(): BattlePiece[] {
@@ -243,14 +227,55 @@
       moveNumber += 1;
     });
     if (visible >= lastRun.events.length) {
-      if (lastRun.timeout) entries.push({ kind: 'note', html: '<b>Round 20 — time. The house keeps the board.</b>' });
-      if (lastRun.stalemate) entries.push({ kind: 'note', html: '<b>Dead position — no piece on either side will move again. The house keeps the board.</b>' });
+      if (lastRun.result === 'win') {
+        const benchmark = benchmarkCost(currentPuzzle);
+        const [scoreVerdict, verdict] = verdictFor(spend, benchmark, optimalCost(currentPuzzle));
+        const label = currentPuzzle.kind === 'shared' ? 'target' : 'par';
+        entries.push({
+          kind: 'note',
+          html: `<span class="result won"><b>Position won — ${spend} pts · ${label} ${benchmark} · ${scoreVerdict}</b> ${verdict}</span>`,
+        });
+      } else {
+        const hint = lastRun.stalemate
+          ? 'Dead position: nobody left willing to move. You need a piece that can break through.'
+          : lastRun.timeout
+            ? 'Round 20 — time, and the house keeps the board. Apply pressure faster.'
+            : 'Your force was eliminated. Study their ranges and go again.';
+        entries.push({ kind: 'note', html: `<span class="result lost"><b>Position lost.</b> ${hint}</span>` });
+      }
     }
     return entries;
   }
 
   function deployLabel(): string {
     return `${fileOf(deployment[0])}–${fileOf(deployment[1])}`;
+  }
+
+  function readProgress(): Record<string, number> {
+    try {
+      const raw = localStorage.getItem('puzzleProgress');
+      if (!raw) return {};
+      const parsed = JSON.parse(raw) as unknown;
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+      const clean: Record<string, number> = {};
+      for (const [id, best] of Object.entries(parsed)) {
+        if (typeof best === 'number' && Number.isInteger(best) && best > 0) clean[id] = best;
+      }
+      return clean;
+    } catch {
+      return {};
+    }
+  }
+
+  function recordBest(puzzleId: string, cost: number): void {
+    const previous = progress[puzzleId];
+    if (previous !== undefined && previous <= cost) return;
+    progress[puzzleId] = cost;
+    try {
+      localStorage.setItem('puzzleProgress', JSON.stringify(progress));
+    } catch {
+      // Private mode or blocked storage — progress just won't persist.
+    }
   }
 
   function readHowToOpen(): boolean {
@@ -352,7 +377,6 @@
     lastRun = null;
     cursor = 0;
     maxSeen = 0;
-    resultShown = false;
     updateMode();
   }
 
@@ -509,7 +533,6 @@
     );
     cursor = 0;
     maxSeen = 0;
-    resultShown = false;
     messageHtml = '';
     disarmSpoiler();
     return true;
@@ -517,9 +540,50 @@
 
   function scrollSheet(): void {
     void tick().then(() => {
-      const sheet = document.querySelector('.sheet');
-      sheet?.scrollTo({ top: sheet.scrollHeight });
+      const moves = document.querySelector('.sheet .moves');
+      moves?.scrollTo({ top: moves.scrollHeight });
     });
+  }
+
+  const SHEET_DEFAULT_HEIGHT = 154;
+  const SHEET_EXPANDED_HEIGHT = SHEET_DEFAULT_HEIGHT * 3;
+
+  function toggleSheetHeight(): void {
+    if (sheetDragged) return;
+    sheetHeight = (sheetHeight ?? SHEET_DEFAULT_HEIGHT) >= SHEET_EXPANDED_HEIGHT * 0.75
+      ? null
+      : SHEET_EXPANDED_HEIGHT;
+  }
+
+  function startSheetResize(event: PointerEvent): void {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    const startY = event.clientY;
+    const startHeight = sheetHeight
+      ?? document.querySelector('.sheet')?.getBoundingClientRect().height
+      ?? SHEET_DEFAULT_HEIGHT;
+    let moved = false;
+
+    const move = (moveEvent: PointerEvent) => {
+      const delta = moveEvent.clientY - startY;
+      if (!moved && Math.abs(delta) < 5) return;
+      moved = true;
+      moveEvent.preventDefault();
+      sheetHeight = Math.min(500, Math.max(64, Math.round(startHeight + delta)));
+    };
+
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', up);
+      if (moved) {
+        sheetDragged = true;
+        setTimeout(() => { sheetDragged = false; }, 0);
+      }
+    };
+
+    window.addEventListener('pointermove', move, { passive: false });
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
   }
 
   function advanceCursor(): void {
@@ -544,9 +608,9 @@
     playing = false;
     stopTimer();
     updateMode();
-    if (lastRun && cursor >= lastRun.events.length && !resultShown) {
-      resultShown = true;
-      finish(lastRun);
+    if (lastRun && cursor >= lastRun.events.length
+        && lastRun.result === 'win' && currentPuzzle.kind === 'official') {
+      recordBest(currentPuzzle.id, spend);
     }
   }
 
@@ -572,7 +636,6 @@
     reduceMotionRun = matchMedia('(prefers-reduced-motion: reduce)').matches;
     playing = true;
     threatFor = null;
-    resultView = null;
     updateMode();
     tickPlayback();
   }
@@ -605,7 +668,6 @@
     stopTimer();
     cursor = 0;
     threatFor = null;
-    resultView = null;
     updateMode();
   }
 
@@ -618,43 +680,6 @@
     threatFor = null;
     disarmSpoiler();
     updateMode();
-  }
-
-  function finish(simulation: Simulation): void {
-    mode = 'done';
-    const win = simulation.result === 'win';
-    if (win) {
-      solved[currentIndex] = true;
-      const benchmark = benchmarkCost(currentPuzzle);
-      const [scoreVerdict, verdict] = verdictFor(spend, benchmark, optimalCost(currentPuzzle));
-      resultView = {
-        win,
-        title: 'Position won',
-        verdict,
-        spend,
-        benchmark,
-        benchmarkLabel: currentPuzzle.kind === 'shared' ? 'target' : 'par',
-        scoreVerdict,
-        canShare: true,
-        canNext: currentPuzzle.kind === 'official'
-          && currentIndex < officialPuzzleCount - 1,
-      };
-    } else {
-      resultView = {
-        win,
-        title: 'Position lost',
-        verdict: simulation.stalemate
-          ? 'Dead position — nobody left willing to move. You need a piece that can break through.'
-          : 'Your force was eliminated — or the clock ran out. Study their ranges and go again.',
-        spend,
-        benchmark: benchmarkCost(currentPuzzle),
-        benchmarkLabel: currentPuzzle.kind === 'shared' ? 'target' : 'par',
-        scoreVerdict: '',
-        canShare: false,
-        canNext: false,
-      };
-    }
-    resultShareFallback = '';
   }
 
   function clearPlacement(): void {
@@ -673,7 +698,7 @@
   }
 
   function revealSpoiler(): void {
-    if (playing || mode !== 'place') return;
+    if (playing || editing) return;
     if (!spoilerArmed) {
       spoilerArmed = true;
       messageHtml = 'This places the optimal setup on the board. Tap again to spoil — or Clear to keep hunting.';
@@ -689,7 +714,6 @@
 
   function startEditor(): void {
     if (playing) return;
-    resultView = null;
     shareUrl = '';
     mode = 'editor';
     editorPieces = [];
@@ -767,24 +791,6 @@
     }, 1600);
   }
 
-  async function shareResult(): Promise<void> {
-    const text = resultShareText(
-      currentPuzzle.name,
-      spend,
-      benchmarkCost(currentPuzzle),
-      currentPuzzle.kind === 'shared' ? 'target' : 'par',
-    );
-    if (!(await copyText(text))) {
-      resultShareFallback = text;
-      await tick();
-      document.querySelector<HTMLInputElement>('#shareOut')?.select();
-    }
-  }
-
-  function closeResult(): void {
-    resultView = null;
-  }
-
   async function shareSolution(): Promise<void> {
     if (!placed.length) return;
     try {
@@ -815,12 +821,10 @@
   }
 
   function nextPuzzle(): void {
-    resultView = null;
     selectPuzzle(Math.min(currentIndex + 1, officialPuzzleCount - 1));
   }
 
   function resetRoutedPuzzleState(): void {
-    resultView = null;
     mode = 'place';
     invalidateRun();
     placed = [];
@@ -896,13 +900,18 @@
   {#if !editing}
     <div class="chips" role="group" aria-label="Choose a puzzle">
       {#each puzzles.slice(0, officialPuzzleCount) as puzzle, index}
+        {@const best = progress[puzzle.id]}
         <button
-          class:solved={solved[index]}
+          class:solved={best !== undefined}
+          class:next={puzzle.id === nextPuzzleId}
           class="chip"
           type="button"
           aria-pressed={index === currentIndex}
+          title={best !== undefined
+            ? `Solved — best ${best} pts`
+            : puzzle.id === nextPuzzleId ? 'Start here' : undefined}
           onclick={() => selectPuzzle(index)}
-        >{toRoman(index + 1)}</button>
+        >{toRoman(index + 1)}{#if best !== undefined}<span class="best">{best}</span>{/if}</button>
       {/each}
       <a
         class="chip"
@@ -940,6 +949,7 @@
     pinnedIds={inRun && runView ? runView.pins : []}
     activeId={inRun && runView ? runView.activeId : null}
     lastMove={inRun && runView ? runView.lastMove : null}
+    {outcome}
     {drag}
     oncell={onCell}
     ondrag={startDrag}
@@ -998,12 +1008,16 @@
           title="Step back"
           onclick={stepBack}
         >⏴</button>
-        <button
-          class="btn primary"
-          type="button"
-          disabled={!placed.length && !lastRun}
-          onclick={togglePlay}
-        >{playing ? 'Pause' : 'Play'}</button>
+        {#if outcome === 'loss'}
+          <button class="btn primary" type="button" onclick={rewind}>Reset</button>
+        {:else}
+          <button
+            class="btn primary"
+            type="button"
+            disabled={!placed.length && !lastRun}
+            onclick={togglePlay}
+          >{playing ? 'Pause' : 'Play'}</button>
+        {/if}
         <button
           class="btn ghost icon"
           type="button"
@@ -1012,6 +1026,9 @@
           title="Step forward"
           onclick={stepForward}
         >⏵</button>
+        {#if outcome === 'win' && canNext}
+          <button class="btn primary" type="button" onclick={nextPuzzle}>🏆 Next Puzzle</button>
+        {/if}
       {/if}
     </div>
   </div>
@@ -1029,7 +1046,13 @@
   {/if}
 
   {#if messageHtml || battleLog.length}
-    <section class="sheet" aria-label="Scoresheet" aria-live="polite">
+    <section
+      class="sheet"
+      style:height={sheetHeight === null ? undefined : `${sheetHeight}px`}
+      style:max-height={sheetHeight === null ? undefined : `${sheetHeight}px`}
+      aria-label="Scoresheet"
+      aria-live="polite"
+    >
       <span class="lbl">Scoresheet</span>
       <div class="moves">
         {#if messageHtml}{@html messageHtml}{/if}
@@ -1051,6 +1074,14 @@
           {/if}
         {/each}
       </div>
+      <button
+        class="sheet-grip"
+        type="button"
+        aria-label="Resize scoresheet"
+        title="Drag to resize — press to toggle taller"
+        onpointerdown={startSheetResize}
+        onclick={toggleSheetHeight}
+      ></button>
     </section>
   {/if}
 
@@ -1089,36 +1120,3 @@
   </div>
 {/if}
 
-{#if resultView}
-  <div class="overlay">
-    <div
-      bind:this={resultCard}
-      class:lost={!resultView.win}
-      class="card"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="result-title"
-      tabindex="-1"
-    >
-      <h2 id="result-title">{resultView.title}</h2>
-      <div class="verdict">{resultView.verdict}</div>
-      <div class="score">
-        {resultView.win ? resultView.spend : '—'}
-        <small>{resultView.win ? ` pts · ${resultView.benchmarkLabel} ${resultView.benchmark} · ${resultView.scoreVerdict}` : `${resultView.benchmarkLabel} ${resultView.benchmark} pts`}</small>
-      </div>
-      {#if resultShareFallback}
-        <input id="shareOut" class="share-out" readonly value={resultShareFallback} aria-label="Shareable result text">
-      {/if}
-      <div class="row">
-        <button class="btn ghost dark" type="button" onclick={rewind}>Retry</button>
-        <button class="btn ghost dark" type="button" onclick={closeResult}>Close</button>
-        {#if resultView.canShare}
-          <button class="btn ghost dark" type="button" onclick={() => void shareResult()}>Copy result</button>
-        {/if}
-        {#if resultView.canNext}
-          <button class="btn primary" type="button" onclick={nextPuzzle}>Next puzzle</button>
-        {/if}
-      </div>
-    </div>
-  </div>
-{/if}
