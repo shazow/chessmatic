@@ -1008,12 +1008,16 @@
           title="Step back"
           onclick={stepBack}
         >⏴</button>
-        <button
-          class="btn primary"
-          type="button"
-          disabled={!placed.length && !lastRun}
-          onclick={togglePlay}
-        >{playing ? 'Pause' : 'Play'}</button>
+        {#if outcome === 'loss'}
+          <button class="btn primary" type="button" onclick={rewind}>Reset</button>
+        {:else}
+          <button
+            class="btn primary"
+            type="button"
+            disabled={!placed.length && !lastRun}
+            onclick={togglePlay}
+          >{playing ? 'Pause' : 'Play'}</button>
+        {/if}
         <button
           class="btn ghost icon"
           type="button"

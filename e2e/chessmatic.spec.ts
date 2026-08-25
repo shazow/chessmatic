@@ -74,6 +74,10 @@ test('marks a loss on the board and scoresheet without a dialog', async ({ page 
   await expect(page.locator('.sheet')).toContainText('Position lost');
   await expect(page.locator('.board-shell')).toHaveClass(/lost/);
   await expect(page.getByRole('dialog')).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Reset', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
+  await expect(page.getByRole('gridcell', { name: /h1, your pawn, turn/ })).toBeVisible();
 });
 
 test('loads a shared replay link with the solution pre-placed', async ({ page }) => {
