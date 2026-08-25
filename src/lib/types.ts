@@ -25,12 +25,6 @@ export interface Puzzle {
   solution: SetupPiece[];
 }
 
-export interface CustomPuzzle extends Omit<Puzzle, 'optimalCost' | 'solution'> {
-  custom: true;
-  shareCode: string;
-  solution: [];
-}
-
 export interface SideConfig {
   pawnDir: number;
   deploy: [number, number];

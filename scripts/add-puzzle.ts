@@ -2,7 +2,8 @@
 
 import fs from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { decodePuzzle, puzzleFromHash } from '../src/lib/puzzle-link';
+import { parseHashRoute } from '../src/lib/hash-router';
+import { decodePuzzle } from '../src/lib/puzzle-link';
 import { findWinningSolutionAtCost, solveOptimal } from '../src/lib/solver';
 import type { Puzzle, PuzzleData, SetupPiece } from '../src/lib/types';
 
@@ -18,16 +19,16 @@ export function puzzleCodeFromInput(input: string): string {
   if (!value) throw new Error('Provide a saved puzzle URL or code.');
 
   if (value.startsWith('#')) {
-    const code = puzzleFromHash(value);
-    if (!code) throw new Error('The puzzle URL does not contain a puzzle code.');
-    return code;
+    const route = parseHashRoute(value);
+    if (route.kind !== 'shared') throw new Error('The puzzle URL does not contain a puzzle code.');
+    return route.code;
   }
 
   try {
     const url = new URL(value);
-    const code = puzzleFromHash(url.hash);
-    if (!code) throw new Error('The puzzle URL does not contain a puzzle code.');
-    return code;
+    const route = parseHashRoute(url.hash);
+    if (route.kind !== 'shared') throw new Error('The puzzle URL does not contain a puzzle code.');
+    return route.code;
   } catch (error) {
     if (error instanceof TypeError) return value;
     throw error;

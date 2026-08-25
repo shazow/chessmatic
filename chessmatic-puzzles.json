@@ -51,7 +51,7 @@
     },
     {
       "id": "lone-rook",
-      "name": "№1 · Lone Rook",
+      "name": "Lone Rook",
       "desc": "Set your starting position and watch it play out.",
       "enemy": [
         {
@@ -77,7 +77,7 @@
     },
     {
       "id": "first-exchange",
-      "name": "№2 · First Exchange",
+      "name": "First Exchange",
       "desc": "A bishop behind a pawn screen. Something has to give.",
       "enemy": [
         {
@@ -108,7 +108,7 @@
     },
     {
       "id": "open-file",
-      "name": "№3 · Open File",
+      "name": "Open File",
       "desc": "The rook strikes first and owns its rank.",
       "enemy": [
         {
@@ -144,7 +144,7 @@
     },
     {
       "id": "her-majesty",
-      "name": "№4 · Her Majesty",
+      "name": "Her Majesty",
       "desc": "Ten points of royalty. Beat her for less.",
       "enemy": [
         {
@@ -175,7 +175,7 @@
     },
     {
       "id": "knight-errant",
-      "name": "№5 · Knight Errant",
+      "name": "Knight Errant",
       "desc": "A knight roams ahead of a corner rook. The club’s final board.",
       "enemy": [
         {

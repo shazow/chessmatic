@@ -11,6 +11,7 @@ test('places the optimal setup and completes a battle', async ({ page }) => {
   await page.goto(appPath);
   await expect(page.getByRole('heading', { name: /Chessmatic/ })).toBeVisible();
   await expect(page.getByText(firstPuzzleName)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'VI', exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'Spoiler' }).click();
   await page.getByRole('button', { name: 'Reveal optimal?' }).click();
@@ -24,9 +25,15 @@ test('places the optimal setup and completes a battle', async ({ page }) => {
   await expect(dialog).toContainText('That is the cheapest possible answer.');
 });
 
-test('creates and loads a custom puzzle with the legacy hash format', async ({ page }) => {
+test('creates and loads a custom puzzle from its hash route', async ({ page }) => {
   await page.goto(appPath);
   await page.getByRole('button', { name: 'Editor' }).click();
+  const editorActions = page.locator('.editor-actions');
+  await expect(editorActions.getByRole('button', { name: 'Cancel' })).toBeVisible();
+  await expect(editorActions.locator('a, button')).toHaveCount(1);
+  await expect(page.getByRole('link', { name: 'Random' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Editor' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Spoiler' })).toHaveCount(0);
   await page.getByLabel('Title').fill('Browser Test');
   await page.getByLabel('Target').fill('3');
   await page.getByLabel('Description').fill('Made in Playwright.');
@@ -36,7 +43,7 @@ test('creates and loads a custom puzzle with the legacy hash format', async ({ p
 
   await expect(page.getByText('Browser Test')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Custom' })).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByLabel('Shareable puzzle link')).toHaveValue(/#\?puzzle=/);
+  await expect(page.getByLabel('Shareable puzzle link')).toHaveValue(/#puzzle=/);
 
   const code = encodePuzzle({
     name: 'Old Link',
@@ -44,7 +51,7 @@ test('creates and loads a custom puzzle with the legacy hash format', async ({ p
     targetCost: 2,
     enemy: [{ type: 'P', col: 0, row: 0 }],
   }, data);
-  await page.goto(`${appPath}#?puzzle=${code}`);
+  await page.goto(`${appPath}#puzzle=${code}`);
   await expect(page.getByText('Old Link')).toBeVisible();
   await expect(page.getByText('Still compatible.')).toBeVisible();
 
@@ -62,6 +69,47 @@ test('supports keyboard placement', async ({ page }) => {
   await page.getByRole('gridcell', { name: 'h1' }).focus();
   await page.keyboard.press('Enter');
   await expect(page.getByRole('gridcell', { name: /h1, your pawn, turn/ })).toBeVisible();
+});
+
+test('generates random puzzles and a repeatable UTC daily puzzle', async ({ page }) => {
+  await page.goto(appPath);
+  const daily = page.getByRole('link', { name: 'DAILY', exact: true });
+  const random = page.getByRole('link', { name: 'Random', exact: true });
+  const expectedDate = await page.evaluate(() => new Date().toISOString().slice(0, 10));
+  const utilityActions = page.locator('.utility-actions').locator('a, button');
+
+  await expect(utilityActions.nth(0)).toHaveText('Random');
+  await expect(utilityActions.nth(1)).toHaveText('Editor');
+  await expect(daily).toHaveAttribute('href', '#daily');
+  await expect(random).toHaveAttribute('href', '#random');
+  await daily.click();
+  await expect(page).toHaveURL(/#daily$/);
+  await expect(page.getByText('Daily Challenge')).toBeVisible();
+  await expect(page.getByText(`Generated for ${expectedDate} UTC.`)).toBeVisible();
+  await expect(daily).toHaveAttribute('aria-current', 'page');
+  const firstDailySetup = await page.getByRole('gridcell').evaluateAll((cells) => cells
+    .map((cell) => cell.getAttribute('aria-label'))
+    .filter((label) => label?.includes(', enemy ')));
+
+  await page.reload();
+  const secondDailySetup = await page.getByRole('gridcell').evaluateAll((cells) => cells
+    .map((cell) => cell.getAttribute('aria-label'))
+    .filter((label) => label?.includes(', enemy ')));
+  expect(secondDailySetup).toEqual(firstDailySetup);
+
+  await random.click();
+  await expect(page).toHaveURL(/#random=[A-Za-z0-9-]+$/);
+  await expect(page.getByText('Random Challenge')).toBeVisible();
+  await expect(page.getByText(/^Generated from seed /)).toBeVisible();
+  await expect(random).toHaveAttribute('aria-current', 'page');
+  const randomSetup = await page.getByRole('gridcell').evaluateAll((cells) => cells
+    .map((cell) => cell.getAttribute('aria-label'))
+    .filter((label) => label?.includes(', enemy ')));
+  await page.reload();
+  const reloadedRandomSetup = await page.getByRole('gridcell').evaluateAll((cells) => cells
+    .map((cell) => cell.getAttribute('aria-label'))
+    .filter((label) => label?.includes(', enemy ')));
+  expect(reloadedRandomSetup).toEqual(randomSetup);
 });
 
 test('drags pieces onto, across, and off the board', async ({ page }) => {

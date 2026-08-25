@@ -17,11 +17,11 @@ const importData = {
   puzzles: data.puzzles.filter((puzzle) => puzzle.id !== 'a-challenger-appears'),
 };
 const code = 'eyJ2IjoxLCJuIjoiQmVnaW5uZXIiLCJkIjoiRWFjaCBwaWVjZSBnZXRzIGEgdHVybiwgbW92ZW1lbnRzIGZvbGxvdyBhIHNpbXBsZSBydWxlc2V0IiwicCI6NCwiZSI6W1siUCIsMiwxXV19';
-const url = `http://localhost:5173/#?puzzle=${code}`;
+const url = `http://localhost:5173/#puzzle=${code}`;
 
 test('extracts puzzle codes from full URLs, hashes, and bare codes', () => {
   expect(puzzleCodeFromInput(url)).toBe(code);
-  expect(puzzleCodeFromInput(`#?puzzle=${code}`)).toBe(code);
+  expect(puzzleCodeFromInput(`#puzzle=${code}`)).toBe(code);
   expect(puzzleCodeFromInput(code)).toBe(code);
 });
 

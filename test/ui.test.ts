@@ -1,5 +1,9 @@
 import { expect, test } from 'vitest';
-import { resultShareText, verdictFor } from '../src/lib/ui';
+import { resultShareText, toRoman, verdictFor } from '../src/lib/ui';
+
+test('formats selector positions as Roman numerals without a fixed list', () => {
+  expect([1, 4, 5, 6, 9, 14, 40].map(toRoman)).toEqual(['I', 'IV', 'V', 'VI', 'IX', 'XIV', 'XL']);
+});
 
 test('official verdicts distinguish optimal, par, and over-par wins', () => {
   expect(verdictFor(4, 6, 4)).toEqual(['Optimal — 2 under par.', 'That is the cheapest possible answer.']);
@@ -15,5 +19,6 @@ test('custom verdicts compare scores with the authored target', () => {
 });
 
 test('share text retains the compact score format', () => {
-  expect(resultShareText('№1 · Lone Rook', 5, 4)).toBe('♞ CHESSMATIC №1 🟩🟩🟩🟩🟨');
+  expect(resultShareText('Lone Rook', 5, 4, 'par')).toBe('♞ CHESSMATIC Lone Rook 🟩🟩🟩🟩🟨');
+  expect(resultShareText('Long Game', 27, 25, 'target')).toBe('♞ CHESSMATIC Long Game target 25 +2');
 });

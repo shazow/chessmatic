@@ -104,12 +104,3 @@ export function decodePuzzle(encoded: string, data: PuzzleData): SharedPuzzle {
     throw new Error('The shared puzzle code could not be read.');
   }
 }
-
-export function puzzleFromHash(hash: string): string | null {
-  return new URLSearchParams(hash.replace(/^#\??/, '')).get('puzzle');
-}
-
-export function buildPuzzleUrl(locationLike: Pick<Location, 'href'> | string, encoded: string): string {
-  const base = String(typeof locationLike === 'string' ? locationLike : locationLike.href).split('#')[0];
-  return `${base}#?puzzle=${encoded}`;
-}

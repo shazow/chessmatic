@@ -97,9 +97,11 @@ h1 .knight {
   padding: 6px 12px;
   border-radius: 999px;
   cursor: pointer;
+  text-decoration: none;
 }
 
-.chip[aria-pressed='true'] {
+.chip[aria-pressed='true'],
+.chip[aria-current='page'] {
   background: var(--brass);
   border-color: var(--brass);
   color: #231d08;
@@ -442,6 +444,7 @@ h1 .knight {
   border-radius: 8px;
   padding: 10px 16px;
   cursor: pointer;
+  text-decoration: none;
 }
 
 .btn.primary {
@@ -454,6 +457,12 @@ h1 .knight {
   background: transparent;
   color: #bcd3c5;
   border: 1px solid #557a66;
+}
+
+.btn.ghost[aria-current='page'] {
+  background: var(--brass);
+  border-color: var(--brass);
+  color: #231d08;
 }
 
 .btn.ghost.dark {

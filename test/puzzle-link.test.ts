@@ -1,11 +1,6 @@
 import fs from 'node:fs';
 import { describe, expect, test } from 'vitest';
-import {
-  buildPuzzleUrl,
-  decodePuzzle,
-  encodePuzzle,
-  puzzleFromHash,
-} from '../src/lib/puzzle-link';
+import { decodePuzzle, encodePuzzle } from '../src/lib/puzzle-link';
 import type { PuzzleData } from '../src/lib/types';
 
 const data = JSON.parse(fs.readFileSync('chessmatic-puzzles.json', 'utf8')) as PuzzleData;
@@ -24,17 +19,6 @@ test('shared puzzle codes round-trip unicode metadata and positions', () => {
   const encoded = encodePuzzle(puzzle, data);
   expect(encoded).toMatch(/^[A-Za-z0-9_-]+$/);
   expect(decodePuzzle(encoded, data)).toEqual(puzzle);
-});
-
-test('puzzle hash parsing accepts the existing #?puzzle form', () => {
-  expect(puzzleFromHash('#?puzzle=abc_123&else=no')).toBe('abc_123');
-  expect(puzzleFromHash('#puzzle=abc')).toBe('abc');
-  expect(puzzleFromHash('#something=else')).toBeNull();
-});
-
-test('puzzle URLs replace an existing hash', () => {
-  expect(buildPuzzleUrl('https://example.test/chessmatic?theme=club#old', 'abc'))
-    .toBe('https://example.test/chessmatic?theme=club#?puzzle=abc');
 });
 
 describe('invalid shared puzzles', () => {

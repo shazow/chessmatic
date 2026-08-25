@@ -5,11 +5,15 @@
   import PieceTray from './lib/components/PieceTray.svelte';
   import { createEngine } from './lib/engine';
   import {
-    buildPuzzleUrl,
-    decodePuzzle,
-    encodePuzzle,
-    puzzleFromHash,
-  } from './lib/puzzle-link';
+    dailyPuzzleHash,
+    hashRouteUrl,
+    parseHashRoute,
+    randomPuzzleHash,
+    sharedPuzzleHash,
+    sharedPuzzleUrl,
+  } from './lib/hash-router';
+  import { decodePuzzle, encodePuzzle } from './lib/puzzle-link';
+  import { dailyPuzzleSeed, generatePuzzle, randomPuzzleSeed } from './lib/random-puzzle';
   import type {
     BattleMove,
     BattlePiece,
@@ -17,6 +21,7 @@
     PieceType,
     Puzzle,
     PuzzleData,
+    SharedPuzzle,
     SetupPiece,
     Simulation,
   } from './lib/types';
@@ -26,22 +31,35 @@
     fileOf,
     resultShareText,
     squareName,
+    toRoman,
     verdictFor,
   } from './lib/ui';
 
-  interface AppPuzzle extends Omit<Puzzle, 'optimalCost'> {
-    optimalCost?: number;
-    custom?: boolean;
-    shareCode?: string;
+  interface OfficialAppPuzzle extends Puzzle {
+    kind: 'official';
   }
+
+  interface GeneratedAppPuzzle extends Puzzle {
+    kind: 'random' | 'daily';
+    seed: string;
+  }
+
+  interface SharedAppPuzzle extends SharedPuzzle {
+    kind: 'shared';
+    id: 'shared-puzzle';
+    shareCode: string;
+    solution: [];
+  }
+
+  type AppPuzzle = OfficialAppPuzzle | GeneratedAppPuzzle | SharedAppPuzzle;
 
   interface ResultView {
     win: boolean;
     title: string;
     verdict: string;
     spend: number;
-    par: number;
-    parLabel: string;
+    benchmark: number;
+    benchmarkLabel: 'par' | 'target';
     scoreVerdict: string;
     canShare: boolean;
     canNext: boolean;
@@ -58,10 +76,10 @@
 
   const data = rawData as unknown as PuzzleData;
   const engine = createEngine(data);
-  const roman = ['I', 'II', 'III', 'IV', 'V'];
-
+  const officialPuzzleCount = data.puzzles.length;
   let puzzles = $state<AppPuzzle[]>(data.puzzles.map((puzzle) => ({
     ...puzzle,
+    kind: 'official',
     enemy: puzzle.enemy.map((piece) => ({ ...piece })),
     solution: puzzle.solution.map((piece) => ({ ...piece })),
   })));
@@ -155,36 +173,57 @@
     if (placementPieces().length === 0) messageHtml = defaultMessage();
   }
 
+  function benchmarkCost(puzzle: AppPuzzle): number {
+    return puzzle.kind === 'shared' ? puzzle.targetCost : puzzle.par;
+  }
+
+  function optimalCost(puzzle: AppPuzzle): number | undefined {
+    return puzzle.kind === 'shared' ? undefined : puzzle.optimalCost;
+  }
+
   function setPuzzleHash(code: string): string {
-    const url = buildPuzzleUrl(location, code);
+    const url = sharedPuzzleUrl(location, code);
     try {
       history.replaceState(null, '', url);
     } catch {
-      location.hash = `?puzzle=${code}`;
+      location.hash = sharedPuzzleHash(code).slice(1);
     }
     return url;
   }
 
-  function clearPuzzleHash(): void {
-    if (!puzzleFromHash(location.hash)) return;
+  function clearAppHash(): void {
+    if (!location.hash) return;
     try {
-      history.replaceState(null, '', location.href.split('#')[0]);
+      history.replaceState(null, '', hashRouteUrl(location, ''));
     } catch {
       location.hash = '';
     }
   }
 
-  function installCustomPuzzle(puzzle: ReturnType<typeof decodePuzzle>, shareCode: string): void {
-    puzzles = puzzles.filter((candidate) => !candidate.custom);
+  function installSharedPuzzle(puzzle: ReturnType<typeof decodePuzzle>, shareCode: string): void {
+    puzzles = puzzles.filter((candidate) => candidate.kind === 'official');
     puzzles.push({
+      kind: 'shared',
       id: 'shared-puzzle',
       name: puzzle.name,
       desc: puzzle.desc,
-      par: puzzle.targetCost,
+      targetCost: puzzle.targetCost,
       enemy: puzzle.enemy.map((piece) => ({ ...piece })),
       solution: [],
-      custom: true,
       shareCode,
+    });
+    currentIndex = puzzles.length - 1;
+  }
+
+  function installGeneratedPuzzle(kind: 'random' | 'daily', seed: string): void {
+    const generated = generatePuzzle(data, seed);
+    puzzles = puzzles.filter((candidate) => candidate.kind === 'official');
+    puzzles.push({
+      ...generated,
+      kind,
+      seed,
+      name: kind === 'daily' ? 'Daily Challenge' : 'Random Challenge',
+      desc: kind === 'daily' ? `Generated for ${seed} UTC.` : `Generated from seed ${seed}.`,
     });
     currentIndex = puzzles.length - 1;
   }
@@ -203,9 +242,9 @@
     threatFor = null;
     disarmSpoiler();
     const puzzle = puzzles[index];
-    if (puzzle.custom && puzzle.shareCode) showPuzzleLink(puzzle.shareCode);
+    if (puzzle.kind === 'shared') showPuzzleLink(puzzle.shareCode);
     else {
-      clearPuzzleHash();
+      clearAppHash();
       shareUrl = '';
     }
     messageHtml = defaultMessage();
@@ -402,17 +441,19 @@
     const win = simulation.result === 'win';
     if (win) {
       solved[currentIndex] = true;
-      const [scoreVerdict, verdict] = verdictFor(spend, currentPuzzle.par, currentPuzzle.optimalCost);
+      const benchmark = benchmarkCost(currentPuzzle);
+      const [scoreVerdict, verdict] = verdictFor(spend, benchmark, optimalCost(currentPuzzle));
       resultView = {
         win,
         title: 'Position won',
         verdict,
         spend,
-        par: currentPuzzle.par,
-        parLabel: currentPuzzle.custom ? 'target' : 'par',
+        benchmark,
+        benchmarkLabel: currentPuzzle.kind === 'shared' ? 'target' : 'par',
         scoreVerdict,
         canShare: true,
-        canNext: currentIndex < puzzles.length - 1,
+        canNext: currentPuzzle.kind === 'official'
+          && currentIndex < officialPuzzleCount - 1,
       };
     } else {
       resultView = {
@@ -422,8 +463,8 @@
           ? 'Dead position — nobody left willing to move. You need a piece that can break through.'
           : 'Your force was eliminated — or the clock ran out. Study their ranges and go again.',
         spend,
-        par: currentPuzzle.par,
-        parLabel: currentPuzzle.custom ? 'target' : 'par',
+        benchmark: benchmarkCost(currentPuzzle),
+        benchmarkLabel: currentPuzzle.kind === 'shared' ? 'target' : 'par',
         scoreVerdict: '',
         canShare: false,
         canNext: false,
@@ -491,7 +532,7 @@
       };
       const code = encodePuzzle(puzzle, data);
       const clean = decodePuzzle(code, data);
-      installCustomPuzzle(clean, code);
+      installSharedPuzzle(clean, code);
       mode = 'place';
       placed = [];
       selectedType = null;
@@ -537,7 +578,12 @@
   }
 
   async function shareResult(): Promise<void> {
-    const text = resultShareText(currentPuzzle.name, spend, currentPuzzle.par);
+    const text = resultShareText(
+      currentPuzzle.name,
+      spend,
+      benchmarkCost(currentPuzzle),
+      currentPuzzle.kind === 'shared' ? 'target' : 'par',
+    );
     if (!(await copyText(text))) {
       resultShareFallback = text;
       await tick();
@@ -555,31 +601,63 @@
 
   function nextPuzzle(): void {
     resultView = null;
-    selectPuzzle(Math.min(currentIndex + 1, puzzles.length - 1));
+    selectPuzzle(Math.min(currentIndex + 1, officialPuzzleCount - 1));
     mode = 'place';
   }
 
-  function loadSharedHash(): void {
-    const sharedCode = puzzleFromHash(location.hash);
-    if (!sharedCode) return;
+  function resetRoutedPuzzleState(): void {
+    resultView = null;
+    mode = 'place';
+    playing = false;
+    finishRequested = false;
+    placed = [];
+    selectedType = null;
+    threatFor = null;
+    pinnedIds = [];
+    activeId = null;
+    lastMove = null;
+    disarmSpoiler();
+    shareUrl = '';
+  }
+
+  function routeHash(): void {
+    const route = parseHashRoute(location.hash);
+    resetRoutedPuzzleState();
     try {
-      installCustomPuzzle(decodePuzzle(sharedCode, data), sharedCode);
-      placed = [];
-      selectedType = null;
-      threatFor = null;
-      mode = 'place';
-      showPuzzleLink(sharedCode);
+      if (route.kind === 'home') {
+        puzzles = puzzles.filter((candidate) => candidate.kind === 'official');
+        currentIndex = 0;
+      } else if (route.kind === 'shared') {
+        installSharedPuzzle(decodePuzzle(route.code, data), route.code);
+        shareUrl = location.href;
+      } else if (route.kind === 'daily') {
+        const date = dailyPuzzleSeed();
+        installGeneratedPuzzle('daily', date);
+      } else if (route.kind === 'random') {
+        const seed = route.seed ?? randomPuzzleSeed();
+        installGeneratedPuzzle('random', seed);
+        if (route.seed === null) {
+          history.replaceState(null, '', hashRouteUrl(location, randomPuzzleHash(seed)));
+        }
+      } else {
+        puzzles = puzzles.filter((candidate) => candidate.kind === 'official');
+        currentIndex = 0;
+        messageHtml = 'The URL route is invalid, so the first club puzzle was loaded instead.';
+        return;
+      }
       messageHtml = defaultMessage();
     } catch {
-      messageHtml = 'The shared puzzle link is invalid, so the first club puzzle was loaded instead.';
+      puzzles = puzzles.filter((candidate) => candidate.kind === 'official');
+      currentIndex = 0;
+      messageHtml = 'The puzzle URL is invalid, so the first club puzzle was loaded instead.';
     }
   }
 
   onMount(() => {
     messageHtml = defaultMessage();
-    loadSharedHash();
-    window.addEventListener('hashchange', loadSharedHash);
-    return () => window.removeEventListener('hashchange', loadSharedHash);
+    routeHash();
+    window.addEventListener('hashchange', routeHash);
+    return () => window.removeEventListener('hashchange', routeHash);
   });
 </script>
 
@@ -600,20 +678,29 @@
 
   {#if !editing}
     <div class="chips" role="group" aria-label="Choose a puzzle">
-      {#each puzzles as puzzle, index}
+      {#each puzzles.slice(0, officialPuzzleCount) as puzzle, index}
         <button
           class:solved={solved[index]}
           class="chip"
           type="button"
           aria-pressed={index === currentIndex}
           onclick={() => selectPuzzle(index)}
-        >{puzzle.custom ? 'Custom' : (roman[index] ?? String(index + 1))}</button>
+        >{toRoman(index + 1)}</button>
       {/each}
+      <a
+        class="chip"
+        href={dailyPuzzleHash()}
+        aria-current={currentPuzzle.kind === 'daily' ? 'page' : undefined}
+        onclick={(event) => { if (playing || editing) event.preventDefault(); }}
+      >DAILY</a>
+      {#if currentPuzzle.kind === 'shared'}
+        <button class="chip" type="button" aria-pressed="true" onclick={() => selectPuzzle(currentIndex)}>Custom</button>
+      {/if}
     </div>
 
     <section class="mission" aria-labelledby="puzzle-name">
       <div><b id="puzzle-name">{currentPuzzle.name}</b><div class="par">{currentPuzzle.desc}</div></div>
-      <div class="par">{currentPuzzle.custom ? 'Target' : 'Par'} <strong>{currentPuzzle.par}</strong> pts</div>
+      <div class="par">{currentPuzzle.kind === 'shared' ? 'Target' : 'Par'} <strong>{benchmarkCost(currentPuzzle)}</strong> pts</div>
     </section>
   {:else}
     <section class="editor-form" aria-label="Puzzle details">
@@ -693,16 +780,26 @@
     <p>Eliminate every enemy within 20 rounds. A full round with no moves is an instant loss; so is reaching the limit with enemies standing. Your score is points spent. Beat par to climb the club board; match the optimal score to prove there is no cheaper solution.</p>
   </details>
 
-  <div class="utility-actions">
-    <button class="btn ghost" type="button" onclick={() => editing ? cancelEditor() : startEditor()}>
-      {editing ? 'Cancel' : 'Editor'}
-    </button>
-    {#if !editing && currentPuzzle.solution.length}
-      <button class:armed={spoilerArmed} class="btn ghost spoiler" type="button" disabled={playing} onclick={revealSpoiler}>
-        {spoilerArmed ? 'Reveal optimal?' : 'Spoiler'}
-      </button>
-    {/if}
-  </div>
+  {#if editing}
+    <div class="utility-actions editor-actions">
+      <button class="btn ghost" type="button" onclick={cancelEditor}>Cancel</button>
+    </div>
+  {:else}
+    <div class="utility-actions">
+      <a
+        class="btn ghost"
+        href={randomPuzzleHash()}
+        aria-current={currentPuzzle.kind === 'random' ? 'page' : undefined}
+        onclick={(event) => { if (playing) event.preventDefault(); }}
+      >Random</a>
+      <button class="btn ghost" type="button" onclick={startEditor}>Editor</button>
+      {#if currentPuzzle.solution.length}
+        <button class:armed={spoilerArmed} class="btn ghost spoiler" type="button" disabled={playing} onclick={revealSpoiler}>
+          {spoilerArmed ? 'Reveal optimal?' : 'Spoiler'}
+        </button>
+      {/if}
+    </div>
+  {/if}
 </main>
 
 {#if drag?.active}
@@ -726,7 +823,7 @@
       <div class="verdict">{resultView.verdict}</div>
       <div class="score">
         {resultView.win ? resultView.spend : '—'}
-        <small>{resultView.win ? ` pts · ${resultView.parLabel} ${resultView.par} · ${resultView.scoreVerdict}` : `${resultView.parLabel} ${resultView.par} pts`}</small>
+        <small>{resultView.win ? ` pts · ${resultView.benchmarkLabel} ${resultView.benchmark} · ${resultView.scoreVerdict}` : `${resultView.benchmarkLabel} ${resultView.benchmark} pts`}</small>
       </div>
       {#if resultShareFallback}
         <input id="shareOut" class="share-out" readonly value={resultShareFallback} aria-label="Shareable result text">
