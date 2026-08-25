@@ -26,6 +26,7 @@
     pinnedIds: string[];
     activeId: string | null;
     lastMove: BattleMove | null;
+    outcome: 'win' | 'loss' | null;
     drag: DragView | null;
     oncell: (col: number, row: number, piece: BattlePiece | undefined) => void;
     ondrag: (event: PointerEvent, source: DragSource) => void;
@@ -44,6 +45,7 @@
     pinnedIds,
     activeId,
     lastMove,
+    outcome,
     drag,
     oncell,
     ondrag,
@@ -62,7 +64,7 @@
   const key = (col: number, row: number) => `${col},${row}`;
 </script>
 
-<div class="board-shell">
+<div class:won={outcome === 'win'} class:lost={outcome === 'loss'} class="board-shell">
   <div class="board" role="grid" aria-label={`Battle board, ${cols} files by ${rows} ranks`}>
     {#each ranks as row}
       {#each files as col}

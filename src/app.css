@@ -203,6 +203,15 @@ h1 .knight {
   border-radius: 12px;
   padding: 10px 10px 6px;
   box-shadow: inset 0 0 0 1px #3a5747, 0 6px 18px rgb(0 0 0 / 40%);
+  transition: box-shadow .3s ease;
+}
+
+.board-shell.won {
+  box-shadow: inset 0 0 0 2px var(--brass), 0 6px 18px rgb(0 0 0 / 40%);
+}
+
+.board-shell.lost {
+  box-shadow: inset 0 0 0 2px var(--signal), 0 6px 18px rgb(0 0 0 / 40%);
 }
 
 .board {
@@ -616,6 +625,8 @@ summary:focus-visible {
 
 .sheet .mv.enemy { color: var(--signal); }
 .sheet .mv.player { color: #2e5c44; }
+.sheet .result.lost { color: var(--signal); }
+.sheet .result.won { color: #2e5c44; }
 
 .sheet button.mv {
   background: none;
@@ -682,7 +693,6 @@ details b { color: var(--brass); }
   outline: 0;
 }
 
-.card.lost { border-top-color: var(--signal); }
 .card h2 { font: 26px Georgia, serif; letter-spacing: .06em; }
 .card .verdict { font-size: 15px; margin-top: 6px; color: #6b6353; }
 .card .score { font: 44px Georgia, serif; margin: 12px 0 2px; color: var(--felt); }
@@ -732,7 +742,8 @@ details b { color: var(--brass); }
 
   .btn,
   .chip,
-  .slot {
+  .slot,
+  .board-shell {
     transition: none;
   }
 }

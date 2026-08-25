@@ -59,6 +59,18 @@ test('steps through the scoresheet and scrubs the previous run', async ({ page }
   await expect(firstMove).toHaveClass(/sel/);
 });
 
+test('marks a loss on the board and scoresheet without a dialog', async ({ page }) => {
+  await page.goto(appPath);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.getByRole('button', { name: 'IV', exact: true }).click();
+  await page.getByRole('button', { name: /pawn · 2/i }).click();
+  await page.getByRole('gridcell', { name: 'h1' }).click();
+  await page.getByRole('button', { name: 'Play', exact: true }).click();
+  await expect(page.locator('.sheet')).toContainText('Position lost');
+  await expect(page.locator('.board-shell')).toHaveClass(/lost/);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
 test('loads a shared replay link with the solution pre-placed', async ({ page }) => {
   const code = encodePuzzle({
     name: 'Shared Replay',

@@ -55,14 +55,11 @@
   type AppPuzzle = OfficialAppPuzzle | GeneratedAppPuzzle | SharedAppPuzzle;
 
   interface ResultView {
-    win: boolean;
-    title: string;
     verdict: string;
     spend: number;
     benchmark: number;
     benchmarkLabel: 'par' | 'target';
     scoreVerdict: string;
-    canShare: boolean;
     canNext: boolean;
   }
 
@@ -132,6 +129,7 @@
   );
   let inRun = $derived(mode === 'battle' || mode === 'done');
   let atEnd = $derived(lastRun !== null && cursor >= lastRun.events.length);
+  let outcome = $derived(inRun && atEnd && lastRun ? lastRun.result : null);
   let runView = $derived.by(() => (lastRun ? boardStateAt(lastRun, cursor) : null));
   let battleLog = $derived.by(buildBattleLog);
   let visiblePieces = $derived.by(piecesForRender);
@@ -246,8 +244,16 @@
       moveNumber += 1;
     });
     if (visible >= lastRun.events.length) {
-      if (lastRun.timeout) entries.push({ kind: 'note', html: '<b>Round 20 — time. The house keeps the board.</b>' });
-      if (lastRun.stalemate) entries.push({ kind: 'note', html: '<b>Dead position — no piece on either side will move again. The house keeps the board.</b>' });
+      if (lastRun.result === 'win') {
+        entries.push({ kind: 'note', html: '<span class="result won"><b>Position won.</b></span>' });
+      } else {
+        const hint = lastRun.stalemate
+          ? 'Dead position: nobody left willing to move. You need a piece that can break through.'
+          : lastRun.timeout
+            ? 'Round 20 — time, and the house keeps the board. Apply pressure faster.'
+            : 'Your force was eliminated. Study their ranges and go again.';
+        entries.push({ kind: 'note', html: `<span class="result lost"><b>Position lost.</b> ${hint}</span>` });
+      }
     }
     return entries;
   }
@@ -652,38 +658,19 @@
 
   function finish(simulation: Simulation): void {
     mode = 'done';
-    const win = simulation.result === 'win';
-    if (win) {
-      if (currentPuzzle.kind === 'official') recordBest(currentPuzzle.id, spend);
-      const benchmark = benchmarkCost(currentPuzzle);
-      const [scoreVerdict, verdict] = verdictFor(spend, benchmark, optimalCost(currentPuzzle));
-      resultView = {
-        win,
-        title: 'Position won',
-        verdict,
-        spend,
-        benchmark,
-        benchmarkLabel: currentPuzzle.kind === 'shared' ? 'target' : 'par',
-        scoreVerdict,
-        canShare: true,
-        canNext: currentPuzzle.kind === 'official'
-          && currentIndex < officialPuzzleCount - 1,
-      };
-    } else {
-      resultView = {
-        win,
-        title: 'Position lost',
-        verdict: simulation.stalemate
-          ? 'Dead position — nobody left willing to move. You need a piece that can break through.'
-          : 'Your force was eliminated — or the clock ran out. Study their ranges and go again.',
-        spend,
-        benchmark: benchmarkCost(currentPuzzle),
-        benchmarkLabel: currentPuzzle.kind === 'shared' ? 'target' : 'par',
-        scoreVerdict: '',
-        canShare: false,
-        canNext: false,
-      };
-    }
+    if (simulation.result !== 'win') return;
+    if (currentPuzzle.kind === 'official') recordBest(currentPuzzle.id, spend);
+    const benchmark = benchmarkCost(currentPuzzle);
+    const [scoreVerdict, verdict] = verdictFor(spend, benchmark, optimalCost(currentPuzzle));
+    resultView = {
+      verdict,
+      spend,
+      benchmark,
+      benchmarkLabel: currentPuzzle.kind === 'shared' ? 'target' : 'par',
+      scoreVerdict,
+      canNext: currentPuzzle.kind === 'official'
+        && currentIndex < officialPuzzleCount - 1,
+    };
     resultShareFallback = '';
   }
 
@@ -975,6 +962,7 @@
     pinnedIds={inRun && runView ? runView.pins : []}
     activeId={inRun && runView ? runView.activeId : null}
     lastMove={inRun && runView ? runView.lastMove : null}
+    {outcome}
     {drag}
     oncell={onCell}
     ondrag={startDrag}
@@ -1128,18 +1116,17 @@
   <div class="overlay">
     <div
       bind:this={resultCard}
-      class:lost={!resultView.win}
       class="card"
       role="dialog"
       aria-modal="true"
       aria-labelledby="result-title"
       tabindex="-1"
     >
-      <h2 id="result-title">{resultView.title}</h2>
+      <h2 id="result-title">Position won</h2>
       <div class="verdict">{resultView.verdict}</div>
       <div class="score">
-        {resultView.win ? resultView.spend : '—'}
-        <small>{resultView.win ? ` pts · ${resultView.benchmarkLabel} ${resultView.benchmark} · ${resultView.scoreVerdict}` : `${resultView.benchmarkLabel} ${resultView.benchmark} pts`}</small>
+        {resultView.spend}
+        <small>{` pts · ${resultView.benchmarkLabel} ${resultView.benchmark} · ${resultView.scoreVerdict}`}</small>
       </div>
       {#if resultShareFallback}
         <input id="shareOut" class="share-out" readonly value={resultShareFallback} aria-label="Shareable result text">
@@ -1147,9 +1134,7 @@
       <div class="row">
         <button class="btn ghost dark" type="button" onclick={rewind}>Retry</button>
         <button class="btn ghost dark" type="button" onclick={closeResult}>Close</button>
-        {#if resultView.canShare}
-          <button class="btn ghost dark" type="button" onclick={() => void shareResult()}>Copy result</button>
-        {/if}
+        <button class="btn ghost dark" type="button" onclick={() => void shareResult()}>Copy result</button>
         {#if resultView.canNext}
           <button class="btn primary" type="button" onclick={nextPuzzle}>Next puzzle</button>
         {/if}
