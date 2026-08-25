@@ -53,7 +53,6 @@ button {
 
 header {
   text-align: center;
-  position: relative;
 }
 
 h1 {
@@ -76,13 +75,6 @@ h1 .knight {
   text-transform: uppercase;
   color: #9db8a8;
   margin-top: 2px;
-}
-
-.editor-launch {
-  position: absolute;
-  right: 0;
-  top: 2px;
-  padding: 7px 11px;
 }
 
 .chips {
@@ -430,6 +422,13 @@ h1 .knight {
   justify-content: flex-end;
 }
 
+.utility-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .btn {
   font-size: 14px;
   font-weight: 600;
@@ -623,8 +622,6 @@ details b { color: var(--brass); }
 }
 
 @media (max-width: 520px) {
-  header { padding-top: 38px; }
-  .editor-launch { top: 0; }
   .hud { align-items: flex-start; }
   .btn { padding: 9px 11px; }
   .mission { align-items: flex-start; }

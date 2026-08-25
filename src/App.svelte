@@ -589,9 +589,6 @@
   <header>
     <h1><span class="knight">♞</span>Chessmatic</h1>
     <div class="tagline">Chess Puzzle Autobattler</div>
-    <button class="btn ghost editor-launch" type="button" onclick={() => editing ? cancelEditor() : startEditor()}>
-      {editing ? 'Cancel' : 'Editor'}
-    </button>
   </header>
 
   {#if !editing}
@@ -653,11 +650,6 @@
       {editing ? (editorPieces.length === 1 ? 'piece' : 'pieces') : 'pts'}
     </div>
     <div class="btns">
-      {#if !editing && currentPuzzle.solution.length}
-        <button class:armed={spoilerArmed} class="btn ghost spoiler" type="button" disabled={playing} onclick={revealSpoiler}>
-          {spoilerArmed ? 'Reveal par?' : 'Spoiler'}
-        </button>
-      {/if}
       <button class="btn ghost" type="button" disabled={playing} onclick={clearPlacement}>Clear</button>
       {#if playing}
         <button class="btn ghost" type="button" onclick={() => { finishRequested = true; }}>Finish ≫</button>
@@ -693,6 +685,17 @@
     <p>No safe advance? The piece makes its least-bad legal move — even into trouble. A piece with no legal move is pinned (⊘) until the position changes.</p>
     <p>Eliminate every enemy within 20 rounds. A full round with no moves is an instant loss; so is reaching the limit with enemies standing. Your score is points spent. Hit par and you’ve found the cheapest solution.</p>
   </details>
+
+  <div class="utility-actions">
+    <button class="btn ghost" type="button" onclick={() => editing ? cancelEditor() : startEditor()}>
+      {editing ? 'Cancel' : 'Editor'}
+    </button>
+    {#if !editing && currentPuzzle.solution.length}
+      <button class:armed={spoilerArmed} class="btn ghost spoiler" type="button" disabled={playing} onclick={revealSpoiler}>
+        {spoilerArmed ? 'Reveal par?' : 'Spoiler'}
+      </button>
+    {/if}
+  </div>
 </main>
 
 {#if drag?.active}
