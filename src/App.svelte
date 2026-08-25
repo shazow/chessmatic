@@ -772,7 +772,7 @@
   <details>
     <summary>How to play</summary>
     <p>Chessmatic does not use a regular chess engine. Each piece gets a turn as an automaton, following a deterministic ruleset:</p>
-    <p>Turns are ordered front-to-back, then by rank. Each piece must make a valid move, if available: Capture if safe or equal+ value, else creep one step toward the enemy preferring a safe position.</p>
+    <p>Turns are ordered middle-to-back, then by vertically. Each piece must make a valid move, if available: Capture if safe or equal+ value, else creep one step toward the enemy preferring a safe position.</p>
     <p>The rules are tuned to be predictable and to allow for interesting puzzle scenarios.</p>
   </details>
 
