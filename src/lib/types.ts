@@ -87,4 +87,5 @@ export interface SharedPuzzle {
   desc: string;
   targetCost: number;
   enemy: SetupPiece[];
+  solution?: SetupPiece[];
 }

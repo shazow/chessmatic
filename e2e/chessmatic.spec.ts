@@ -17,12 +17,56 @@ test('places the optimal setup and completes a battle', async ({ page }) => {
   await page.getByRole('button', { name: 'Reveal optimal?' }).click();
   await expect(page.getByText('Spend').locator('..')).toContainText(`${data.puzzles[0].optimalCost} pts`);
 
-  await page.getByRole('button', { name: 'Start battle' }).click();
-  await page.getByRole('button', { name: 'Finish ≫' }).click();
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.getByRole('button', { name: 'Play', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole('heading', { name: 'Position won' })).toBeVisible();
   await expect(dialog).toContainText('That is the cheapest possible answer.');
+});
+
+test('steps through the scoresheet and scrubs the previous run', async ({ page }) => {
+  await page.goto(appPath);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.getByRole('button', { name: 'Spoiler' }).click();
+  await page.getByRole('button', { name: 'Reveal optimal?' }).click();
+  await page.getByRole('button', { name: 'Play', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: 'Close' }).click();
+  await expect(dialog).toBeHidden();
+
+  const firstMove = page.locator('.sheet button.mv').first();
+  await firstMove.click();
+  await expect(firstMove).toHaveClass(/sel/);
+
+  await page.getByRole('button', { name: 'Step forward' }).click();
+  await page.getByRole('button', { name: 'Step back' }).click();
+  await expect(firstMove).toHaveClass(/sel/);
+
+  await page.getByRole('button', { name: 'Rewind to setup' }).click();
+  await expect(page.getByRole('button', { name: 'Clear' })).toBeVisible();
+  await page.getByRole('button', { name: 'Copy replay link' }).click();
+  await expect(page.locator('.sheet')).toContainText(/Replay link (copied|ready)/);
+  await expect(firstMove).not.toHaveClass(/sel/);
+  await firstMove.click();
+  await expect(firstMove).toHaveClass(/sel/);
+});
+
+test('loads a shared replay link with the solution pre-placed', async ({ page }) => {
+  const code = encodePuzzle({
+    name: 'Shared Replay',
+    desc: 'Includes a solution.',
+    targetCost: data.puzzles[0].par,
+    enemy: data.puzzles[0].enemy,
+    solution: data.puzzles[0].solution,
+  }, data);
+  await page.goto(`${appPath}#puzzle=${code}`);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(page.getByText('Shared Replay')).toBeVisible();
+  await expect(page.getByText(/shared solution/)).toBeVisible();
+  await page.getByRole('button', { name: 'Play', exact: true }).click();
+  await expect(page.getByRole('dialog').getByRole('heading', { name: 'Position won' })).toBeVisible();
 });
 
 test('creates and loads a custom puzzle from its hash route', async ({ page }) => {

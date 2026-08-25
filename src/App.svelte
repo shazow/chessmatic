@@ -23,6 +23,7 @@
     PuzzleData,
     SharedPuzzle,
     SetupPiece,
+    Side,
     Simulation,
   } from './lib/types';
   import {
@@ -48,7 +49,7 @@
     kind: 'shared';
     id: 'shared-puzzle';
     shareCode: string;
-    solution: [];
+    solution: SetupPiece[];
   }
 
   type AppPuzzle = OfficialAppPuzzle | GeneratedAppPuzzle | SharedAppPuzzle;
@@ -64,6 +65,12 @@
     canShare: boolean;
     canNext: boolean;
   }
+
+  type LogEntry =
+    | { kind: 'note'; html: string }
+    | { kind: 'round'; round: number }
+    | { kind: 'pin'; side: Side; text: string }
+    | { kind: 'move'; step: number; number: number; side: Side; text: string };
 
   interface DragState {
     active: boolean;
@@ -90,12 +97,17 @@
   let mode = $state<GameMode>('place');
   let playing = $state(false);
   let solved = $state<Record<number, boolean>>({});
-  let livePieces = $state<BattlePiece[]>([]);
-  let finishRequested = $state(false);
-  let pinnedIds = $state<string[]>([]);
-  let activeId = $state<string | null>(null);
+  let lastRun = $state<Simulation | null>(null);
+  let cursor = $state(0);
+  let maxSeen = $state(0);
+  let resultShown = false;
+  let playTimer: number | null = null;
+  let reduceMotionRun = false;
+  let shareCopied = $state(false);
+  let shareCopiedTimer: number | null = null;
+  let linkCopied = $state(false);
+  let linkCopiedTimer: number | null = null;
   let threatFor = $state<string | null>(null);
-  let lastMove = $state<BattleMove | null>(null);
   let spoilerArmed = $state(false);
   let shareUrl = $state('');
   let messageHtml = $state('');
@@ -115,6 +127,10 @@
     ? data.sides.enemy.deploy
     : data.sides.player.deploy) as [number, number]);
   let spend = $derived(placed.reduce((total, piece) => total + data.pieceCosts[piece.type], 0));
+  let inRun = $derived(mode === 'battle' || mode === 'done');
+  let atEnd = $derived(lastRun !== null && cursor >= lastRun.events.length);
+  let runView = $derived.by(() => (lastRun ? boardStateAt(lastRun, cursor) : null));
+  let battleLog = $derived.by(buildBattleLog);
   let visiblePieces = $derived.by(piecesForRender);
   let threats = $derived.by(() => {
     if (!threatFor) return new Set<string>();
@@ -137,7 +153,7 @@
         id: `e${index}`,
       }));
     }
-    if (mode === 'battle' || mode === 'done') return livePieces;
+    if (mode === 'battle' || mode === 'done') return runView?.pieces ?? [];
     const player: BattlePiece[] = placed.map((piece, index) => ({
       ...piece,
       side: 'player',
@@ -157,6 +173,80 @@
 
   function placementPieces(): SetupPiece[] {
     return editing ? editorPieces : placed;
+  }
+
+  interface RunView {
+    pieces: BattlePiece[];
+    pins: string[];
+    lastMove: BattleMove | null;
+    activeId: string | null;
+    moveStep: number;
+  }
+
+  function boardStateAt(run: Simulation, upto: number): RunView {
+    const bound = Math.min(upto, run.events.length);
+    const pieces = run.initialPieces.map((piece) => ({ ...piece }));
+    const pins: string[] = [];
+    let lastMove: BattleMove | null = null;
+    let moveStep = -1;
+    run.events.slice(0, bound).forEach((step, index) => {
+      if (!step.ev) {
+        if (!pins.includes(step.pid)) pins.push(step.pid);
+        return;
+      }
+      const event = step.ev;
+      const pinIndex = pins.indexOf(event.pieceId);
+      if (pinIndex !== -1) pins.splice(pinIndex, 1);
+      if (event.captured) {
+        const captured = pieces.find((piece) => piece.id === event.captured?.id);
+        if (captured) captured.alive = false;
+      }
+      const mover = pieces.find((piece) => piece.id === event.pieceId);
+      if (mover) {
+        mover.col = event.to.c;
+        mover.row = event.to.r;
+      }
+      lastMove = event;
+      moveStep = index;
+    });
+    const last = run.events[bound - 1];
+    const activeId = last ? (last.ev ? last.ev.pieceId : last.pid) : null;
+    return { pieces, pins, lastMove, activeId, moveStep };
+  }
+
+  function buildBattleLog(): LogEntry[] {
+    if (!lastRun) return [];
+    const entries: LogEntry[] = [{ kind: 'note', html: '<b>Battle begins.</b>' }];
+    const visible = Math.min(maxSeen, lastRun.events.length);
+    let lastRound = -1;
+    let moveNumber = 1;
+    const loggedPins = new Set<string>();
+    lastRun.events.slice(0, visible).forEach((step, index) => {
+      if (step.round !== lastRound) {
+        lastRound = step.round;
+        entries.push({ kind: 'round', round: step.round });
+      }
+      if (!step.ev) {
+        if (!loggedPins.has(step.pid)) {
+          loggedPins.add(step.pid);
+          entries.push({
+            kind: 'pin',
+            side: step.side,
+            text: `⊘ ${GLYPH[step.ptype]} ${squareName(step.at.c, step.at.r)} is pinned — no legal move`,
+          });
+        }
+        return;
+      }
+      const event = step.ev;
+      const notation = `${GLYPH[event.type]} ${squareName(event.from.c, event.from.r)}${event.captured ? '×' : '–'}${squareName(event.to.c, event.to.r)}${event.captured ? ` takes ${PIECE_NAME[event.captured.type]}` : ''}`;
+      entries.push({ kind: 'move', step: index, number: moveNumber, side: event.side, text: notation });
+      moveNumber += 1;
+    });
+    if (visible >= lastRun.events.length) {
+      if (lastRun.timeout) entries.push({ kind: 'note', html: '<b>Round 20 — time. The house keeps the board.</b>' });
+      if (lastRun.stalemate) entries.push({ kind: 'note', html: '<b>Dead position — no piece on either side will move again. The house keeps the board.</b>' });
+    }
+    return entries;
   }
 
   function deployLabel(): string {
@@ -215,11 +305,11 @@
     puzzles.push({
       kind: 'shared',
       id: 'shared-puzzle',
-      name: puzzle.name,
+      name: puzzle.name || 'Custom Puzzle',
       desc: puzzle.desc,
       targetCost: puzzle.targetCost,
       enemy: puzzle.enemy.map((piece) => ({ ...piece })),
-      solution: [],
+      solution: puzzle.solution?.map((piece) => ({ ...piece })) ?? [],
       shareCode,
     });
     currentIndex = puzzles.length - 1;
@@ -244,6 +334,28 @@
     return url;
   }
 
+  function stopTimer(): void {
+    if (playTimer !== null) {
+      clearTimeout(playTimer);
+      playTimer = null;
+    }
+  }
+
+  function updateMode(): void {
+    if (mode === 'editor') return;
+    mode = playing ? 'battle' : (cursor > 0 ? 'done' : 'place');
+  }
+
+  function invalidateRun(): void {
+    playing = false;
+    stopTimer();
+    lastRun = null;
+    cursor = 0;
+    maxSeen = 0;
+    resultShown = false;
+    updateMode();
+  }
+
   function selectPuzzle(index: number): void {
     if (playing || editing) return;
     currentIndex = index;
@@ -251,8 +363,9 @@
     selectedType = null;
     threatFor = null;
     disarmSpoiler();
+    invalidateRun();
     const puzzle = puzzles[index];
-    if (puzzle.kind === 'shared') showPuzzleLink(puzzle.shareCode);
+    if (puzzle.kind === 'shared') setPuzzleHash(puzzle.shareCode);
     else {
       clearAppHash();
       shareUrl = '';
@@ -272,6 +385,7 @@
         || (piece.side === 'enemy' && editing);
       if (own && !selectedType) {
         placementPieces().splice(Number(piece.id.slice(1)), 1);
+        if (!editing) invalidateRun();
         threatFor = null;
         resetMessageWhenEmpty();
         return;
@@ -289,6 +403,7 @@
       return;
     }
     placementPieces().push({ type: selectedType, col, row });
+    if (!editing) invalidateRun();
   }
 
   function validDropCells(source: DragSource): Set<string> {
@@ -364,6 +479,7 @@
               target.row = row;
             }
           }
+          if (!editing) invalidateRun();
         } else if (col < deployment[0] || col > deployment[1]) {
           messageHtml = `Deploy on files ${deployLabel()} only — piece snapped back.`;
         } else {
@@ -371,6 +487,7 @@
         }
       } else if (source.kind === 'board') {
         placementPieces().splice(source.index, 1);
+        if (!editing) invalidateRun();
         messageHtml = 'Piece returned to the box.';
       }
       threatFor = null;
@@ -383,67 +500,124 @@
     window.addEventListener('pointercancel', up);
   }
 
-  const sleep = (milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
-
-  async function startBattle(): Promise<void> {
-    if (!placed.length || playing) return;
-    const simulation = engine.simulate(
+  function ensureRun(): boolean {
+    if (lastRun) return true;
+    if (!placed.length) return false;
+    lastRun = engine.simulate(
       placed.map((piece) => ({ ...piece })),
       currentPuzzle.enemy.map((piece) => ({ ...piece })),
     );
-    livePieces = simulation.initialPieces.map((piece) => ({ ...piece }));
-    playing = true;
-    finishRequested = false;
-    mode = 'battle';
-    threatFor = null;
-    pinnedIds = [];
-    activeId = null;
-    lastMove = null;
-    messageHtml = '<b>Battle begins.</b><br>';
-    const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    let moveNumber = 1;
-    let lastRound = -1;
-    const loggedPins = new Set<string>();
+    cursor = 0;
+    maxSeen = 0;
+    resultShown = false;
+    messageHtml = '';
+    disarmSpoiler();
+    return true;
+  }
 
-    for (const step of simulation.events) {
-      if (step.round !== lastRound) {
-        lastRound = step.round;
-        messageHtml += `<span class="lbl">— round ${step.round + 1} —</span><br>`;
-      }
-      if (!step.ev) {
-        activeId = step.pid;
-        if (!pinnedIds.includes(step.pid)) pinnedIds.push(step.pid);
-        if (!loggedPins.has(step.pid)) {
-          loggedPins.add(step.pid);
-          messageHtml += `<span class="mv ${step.side}">⊘ ${GLYPH[step.ptype]} ${squareName(step.at.c, step.at.r)} is pinned — no legal move</span><br>`;
-          if (!finishRequested && !reducedMotion) await sleep(560);
-        } else if (!finishRequested && !reducedMotion) await sleep(160);
-        continue;
-      }
-      pinnedIds = pinnedIds.filter((id) => id !== step.ev.pieceId);
-      activeId = step.ev.pieceId;
-      const event = step.ev;
-      const livePiece = livePieces.find((piece) => piece.id === event.pieceId);
-      if (event.captured) {
-        const captured = livePieces.find((piece) => piece.id === event.captured?.id);
-        if (captured) captured.alive = false;
-      }
-      if (livePiece) {
-        livePiece.col = event.to.c;
-        livePiece.row = event.to.r;
-      }
-      const notation = `${GLYPH[event.type]} ${squareName(event.from.c, event.from.r)}${event.captured ? '×' : '–'}${squareName(event.to.c, event.to.r)}${event.captured ? ` takes ${PIECE_NAME[event.captured.type]}` : ''}`;
-      messageHtml += `<span class="mv ${event.side}">${moveNumber}. ${notation}</span><br>`;
-      moveNumber += 1;
-      lastMove = event;
-      await tick();
-      document.querySelector('.sheet')?.scrollTo({ top: document.querySelector('.sheet')?.scrollHeight });
-      if (!finishRequested && !reducedMotion) await sleep(event.captured ? 620 : 430);
+  function scrollSheet(): void {
+    void tick().then(() => {
+      const sheet = document.querySelector('.sheet');
+      sheet?.scrollTo({ top: sheet.scrollHeight });
+    });
+  }
+
+  function advanceCursor(): void {
+    if (!lastRun || cursor >= lastRun.events.length) return;
+    cursor += 1;
+    if (cursor > maxSeen) {
+      maxSeen = cursor;
+      scrollSheet();
     }
-    if (simulation.timeout) messageHtml += '<b>Round 20 — time. The house keeps the board.</b><br>';
-    if (simulation.stalemate) messageHtml += '<b>Dead position — no piece on either side will move again. The house keeps the board.</b><br>';
+  }
+
+  function delayAfter(run: Simulation, index: number): number {
+    const step = run.events[index];
+    if (!step.ev) {
+      const firstPin = run.events.findIndex((other) => !other.ev && other.pid === step.pid) === index;
+      return firstPin ? 560 : 160;
+    }
+    return step.ev.captured ? 620 : 430;
+  }
+
+  function stopPlaying(): void {
     playing = false;
-    finish(simulation);
+    stopTimer();
+    updateMode();
+    if (lastRun && cursor >= lastRun.events.length && !resultShown) {
+      resultShown = true;
+      finish(lastRun);
+    }
+  }
+
+  function tickPlayback(): void {
+    playTimer = null;
+    if (!playing || !lastRun) return;
+    advanceCursor();
+    if (cursor >= lastRun.events.length) {
+      stopPlaying();
+      return;
+    }
+    playTimer = window.setTimeout(tickPlayback, reduceMotionRun ? 0 : delayAfter(lastRun, cursor - 1));
+  }
+
+  function togglePlay(): void {
+    if (editing) return;
+    if (playing) {
+      stopPlaying();
+      return;
+    }
+    if (!ensureRun() || !lastRun) return;
+    if (cursor >= lastRun.events.length) cursor = 0;
+    reduceMotionRun = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    playing = true;
+    threatFor = null;
+    resultView = null;
+    updateMode();
+    tickPlayback();
+  }
+
+  function stepForward(): void {
+    if (editing) return;
+    playing = false;
+    stopTimer();
+    if (!ensureRun() || !lastRun || cursor >= lastRun.events.length) {
+      updateMode();
+      return;
+    }
+    advanceCursor();
+    threatFor = null;
+    stopPlaying();
+  }
+
+  function stepBack(): void {
+    if (editing || !lastRun || cursor === 0) return;
+    playing = false;
+    stopTimer();
+    cursor -= 1;
+    threatFor = null;
+    updateMode();
+  }
+
+  function rewind(): void {
+    if (editing) return;
+    playing = false;
+    stopTimer();
+    cursor = 0;
+    threatFor = null;
+    resultView = null;
+    updateMode();
+  }
+
+  function jumpToMove(step: number): void {
+    if (editing || !lastRun) return;
+    playing = false;
+    stopTimer();
+    cursor = Math.min(step + 1, lastRun.events.length);
+    selectedType = null;
+    threatFor = null;
+    disarmSpoiler();
+    updateMode();
   }
 
   function finish(simulation: Simulation): void {
@@ -489,8 +663,8 @@
     else placed = [];
     selectedType = null;
     threatFor = null;
-    pinnedIds = [];
     disarmSpoiler();
+    invalidateRun();
     messageHtml = '';
   }
 
@@ -507,9 +681,10 @@
     }
     disarmSpoiler();
     placed = currentPuzzle.solution.map((piece) => ({ ...piece }));
+    invalidateRun();
     selectedType = null;
     threatFor = null;
-    messageHtml = '<b>Optimal setup placed.</b> Press Start battle to watch why it works — then Clear and see if you can rediscover it cold.';
+    messageHtml = '<b>Optimal setup placed.</b> Press Play to watch why it works — then Clear and see if you can rediscover it cold.';
   }
 
   function startEditor(): void {
@@ -521,6 +696,7 @@
     selectedType = null;
     threatFor = null;
     disarmSpoiler();
+    invalidateRun();
     messageHtml = '';
   }
 
@@ -547,11 +723,8 @@
       placed = [];
       selectedType = null;
       threatFor = null;
-      const url = showPuzzleLink(code);
-      const copied = await copyText(url);
-      messageHtml = copied
-        ? '<b>Puzzle saved and link copied.</b> Set your force, then test the battle.'
-        : '<b>Puzzle saved.</b> Use Copy link to share it, then set your force and test the battle.';
+      showPuzzleLink(code);
+      messageHtml = '<b>Puzzle saved.</b> Use Copy puzzle link to share it, then set your force and test the battle.';
     } catch (error) {
       messageHtml = error instanceof Error ? error.message : 'The puzzle could not be saved.';
     }
@@ -584,7 +757,14 @@
   async function copyPuzzleLink(): Promise<void> {
     if (!(await copyText(shareUrl))) {
       document.querySelector<HTMLInputElement>('#puzzleShareOut')?.select();
+      return;
     }
+    linkCopied = true;
+    if (linkCopiedTimer !== null) clearTimeout(linkCopiedTimer);
+    linkCopiedTimer = window.setTimeout(() => {
+      linkCopied = false;
+      linkCopiedTimer = null;
+    }, 1600);
   }
 
   async function shareResult(): Promise<void> {
@@ -601,31 +781,51 @@
     }
   }
 
-  function retry(): void {
+  function closeResult(): void {
     resultView = null;
-    mode = 'place';
-    pinnedIds = [];
-    activeId = null;
-    lastMove = null;
+  }
+
+  async function shareSolution(): Promise<void> {
+    if (!placed.length) return;
+    try {
+      const code = encodePuzzle({
+        name: currentPuzzle.name,
+        desc: currentPuzzle.desc,
+        targetCost: benchmarkCost(currentPuzzle),
+        enemy: currentPuzzle.enemy.map((piece) => ({ ...piece })),
+        solution: placed.map((piece) => ({ ...piece })),
+      }, data);
+      const url = sharedPuzzleUrl(location, code);
+      const copied = await copyText(url);
+      if (copied) {
+        messageHtml = '<b>Replay link copied.</b> It loads this puzzle with your setup placed, ready to play.';
+        shareCopied = true;
+        if (shareCopiedTimer !== null) clearTimeout(shareCopiedTimer);
+        shareCopiedTimer = window.setTimeout(() => {
+          shareCopied = false;
+          shareCopiedTimer = null;
+        }, 1600);
+      } else {
+        shareUrl = url;
+        messageHtml = '<b>Replay link ready.</b> Use Copy puzzle link to share this puzzle with your setup placed.';
+      }
+    } catch (error) {
+      messageHtml = error instanceof Error ? error.message : 'The replay link could not be created.';
+    }
   }
 
   function nextPuzzle(): void {
     resultView = null;
     selectPuzzle(Math.min(currentIndex + 1, officialPuzzleCount - 1));
-    mode = 'place';
   }
 
   function resetRoutedPuzzleState(): void {
     resultView = null;
     mode = 'place';
-    playing = false;
-    finishRequested = false;
+    invalidateRun();
     placed = [];
     selectedType = null;
     threatFor = null;
-    pinnedIds = [];
-    activeId = null;
-    lastMove = null;
     disarmSpoiler();
     shareUrl = '';
     messageHtml = '';
@@ -639,8 +839,12 @@
         puzzles = puzzles.filter((candidate) => candidate.kind === 'official');
         currentIndex = 0;
       } else if (route.kind === 'shared') {
-        installSharedPuzzle(decodePuzzle(route.code, data), route.code);
-        shareUrl = location.href;
+        const shared = decodePuzzle(route.code, data);
+        installSharedPuzzle(shared, route.code);
+        if (shared.solution?.length) {
+          placed = shared.solution.map((piece) => ({ ...piece }));
+          messageHtml = 'This link includes a shared solution, already set up. Press Play to watch it play out.';
+        }
       } else if (route.kind === 'daily') {
         const date = dailyPuzzleSeed();
         installGeneratedPuzzle('daily', date);
@@ -665,7 +869,12 @@
   onMount(() => {
     routeHash();
     window.addEventListener('hashchange', routeHash);
-    return () => window.removeEventListener('hashchange', routeHash);
+    return () => {
+      window.removeEventListener('hashchange', routeHash);
+      stopTimer();
+      if (shareCopiedTimer !== null) clearTimeout(shareCopiedTimer);
+      if (linkCopiedTimer !== null) clearTimeout(linkCopiedTimer);
+    };
   });
 </script>
 
@@ -712,7 +921,7 @@
     </section>
   {:else}
     <section class="editor-form" aria-label="Puzzle details">
-      <label>Title<input maxlength="80" bind:value={editorName}></label>
+      <label>Title<input maxlength="80" placeholder="Custom Puzzle" bind:value={editorName}></label>
       <label>Target<input type="number" min="1" max="999" step="1" bind:value={editorTarget}></label>
       <label>Description<input maxlength="240" bind:value={editorDesc}></label>
     </section>
@@ -728,9 +937,9 @@
     {selectedType}
     {threats}
     {threatFor}
-    {pinnedIds}
-    {activeId}
-    {lastMove}
+    pinnedIds={inRun && runView ? runView.pins : []}
+    activeId={inRun && runView ? runView.activeId : null}
+    lastMove={inRun && runView ? runView.lastMove : null}
     {drag}
     oncell={onCell}
     ondrag={startDrag}
@@ -739,7 +948,7 @@
   <PieceTray
     costs={data.pieceCosts}
     selected={selectedType}
-    disabled={playing}
+    disabled={inRun}
     enemy={editing}
     onselect={onSelectType}
     ondrag={(event, type) => startDrag(event, { kind: 'tray', type })}
@@ -755,29 +964,93 @@
       {#if (mode === 'place' || editing) && placementPieces().length > 0}
         <button class="btn ghost" type="button" onclick={clearPlacement}>Clear</button>
       {/if}
-      {#if playing}
-        <button class="btn ghost" type="button" onclick={() => { finishRequested = true; }}>Finish ≫</button>
+      {#if mode === 'place' && placed.length > 0}
+        <button
+          class="btn ghost icon"
+          class:share-copied={shareCopied}
+          type="button"
+          aria-label="Copy replay link"
+          title="Copy replay link"
+          onclick={() => void shareSolution()}
+        >{shareCopied ? '✓' : '🔗'}</button>
       {/if}
-      <button
-        class="btn primary"
-        type="button"
-        disabled={editing ? editorPieces.length === 0 : placed.length === 0 || playing}
-        onclick={() => editing ? void saveEditorPuzzle() : void startBattle()}
-      >{editing ? 'Save' : 'Start battle'}</button>
+      {#if editing}
+        <button
+          class="btn primary"
+          type="button"
+          disabled={editorPieces.length === 0}
+          onclick={() => void saveEditorPuzzle()}
+        >Save</button>
+      {:else}
+        <button
+          class="btn ghost icon"
+          type="button"
+          disabled={!lastRun || (cursor === 0 && !playing)}
+          aria-label="Rewind to setup"
+          title="Rewind to setup"
+          onclick={rewind}
+        >⏮</button>
+        <button
+          class="btn ghost icon"
+          type="button"
+          disabled={!lastRun || cursor === 0}
+          aria-label="Step back"
+          title="Step back"
+          onclick={stepBack}
+        >⏴</button>
+        <button
+          class="btn primary"
+          type="button"
+          disabled={!placed.length && !lastRun}
+          onclick={togglePlay}
+        >{playing ? 'Pause' : 'Play'}</button>
+        <button
+          class="btn ghost icon"
+          type="button"
+          disabled={(!placed.length && !lastRun) || atEnd}
+          aria-label="Step forward"
+          title="Step forward"
+          onclick={stepForward}
+        >⏵</button>
+      {/if}
     </div>
   </div>
 
   {#if shareUrl && !editing}
     <div class="puzzle-share">
       <input id="puzzleShareOut" class="share-out" readonly value={shareUrl} aria-label="Shareable puzzle link">
-      <button class="btn ghost" type="button" onclick={() => void copyPuzzleLink()}>Copy link</button>
+      <button
+        class="btn ghost"
+        class:share-copied={linkCopied}
+        type="button"
+        onclick={() => void copyPuzzleLink()}
+      >{linkCopied ? '✓ Copied' : 'Copy puzzle link'}</button>
     </div>
   {/if}
 
-  {#if messageHtml}
+  {#if messageHtml || battleLog.length}
     <section class="sheet" aria-label="Scoresheet" aria-live="polite">
       <span class="lbl">Scoresheet</span>
-      <div class="moves">{@html messageHtml}</div>
+      <div class="moves">
+        {#if messageHtml}{@html messageHtml}{/if}
+        {#each battleLog as entry}
+          {#if entry.kind === 'note'}
+            {@html entry.html}<br>
+          {:else if entry.kind === 'round'}
+            <span class="lbl">— round {entry.round + 1} —</span><br>
+          {:else if entry.kind === 'pin'}
+            <span class="mv {entry.side}">{entry.text}</span><br>
+          {:else}
+            <button
+              class="mv {entry.side}"
+              class:sel={runView?.moveStep === entry.step}
+              type="button"
+              disabled={editing}
+              onclick={() => jumpToMove(entry.step)}
+            >{entry.number}. {entry.text}</button><br>
+          {/if}
+        {/each}
+      </div>
     </section>
   {/if}
 
@@ -837,7 +1110,8 @@
         <input id="shareOut" class="share-out" readonly value={resultShareFallback} aria-label="Shareable result text">
       {/if}
       <div class="row">
-        <button class="btn ghost dark" type="button" onclick={retry}>Retry</button>
+        <button class="btn ghost dark" type="button" onclick={rewind}>Retry</button>
+        <button class="btn ghost dark" type="button" onclick={closeResult}>Close</button>
         {#if resultView.canShare}
           <button class="btn ghost dark" type="button" onclick={() => void shareResult()}>Copy result</button>
         {/if}

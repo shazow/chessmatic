@@ -98,6 +98,15 @@ h1 .knight {
   border-radius: 999px;
   cursor: pointer;
   text-decoration: none;
+  transition: background .12s ease, transform .06s ease;
+}
+
+.chip:not([aria-pressed='true'], [aria-current='page']):hover {
+  background: rgb(188 211 197 / 12%);
+}
+
+.chip:active {
+  transform: translateY(1px);
 }
 
 .chip[aria-pressed='true'],
@@ -394,6 +403,20 @@ h1 .knight {
   margin-top: 2px;
 }
 
+.slot {
+  transition: transform .08s ease, box-shadow .08s ease;
+}
+
+.slot:not(:disabled, [aria-pressed='true']):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 0 rgb(0 0 0 / 35%);
+}
+
+.slot:not(:disabled):active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 0 rgb(0 0 0 / 35%);
+}
+
 .slot[aria-pressed='true'] {
   outline: 3px solid var(--brass);
   transform: translateY(1px);
@@ -445,6 +468,11 @@ h1 .knight {
   padding: 10px 16px;
   cursor: pointer;
   text-decoration: none;
+  transition: background .12s ease, filter .12s ease, color .12s ease, border-color .12s ease, transform .06s ease, box-shadow .06s ease;
+}
+
+.btn:not(:disabled):active {
+  transform: translateY(1px);
 }
 
 .btn.primary {
@@ -453,16 +481,48 @@ h1 .knight {
   box-shadow: 0 2px 0 #8a6d12;
 }
 
+.btn.primary:not(:disabled):hover {
+  filter: brightness(1.07);
+}
+
+.btn.primary:not(:disabled):active {
+  transform: translateY(2px);
+  box-shadow: 0 0 0 #8a6d12;
+}
+
 .btn.ghost {
   background: transparent;
   color: #bcd3c5;
   border: 1px solid #557a66;
 }
 
+.btn.ghost:not(:disabled, [aria-current='page']):hover {
+  background: rgb(188 211 197 / 12%);
+}
+
+.btn.ghost.dark:not(:disabled):hover {
+  background: rgb(43 43 38 / 8%);
+}
+
+.btn.spoiler:not(:disabled, .armed):hover {
+  background: rgb(217 167 156 / 12%);
+}
+
+.btn.share-copied {
+  color: #a9e0bd;
+  border-color: #5f9c77;
+}
+
 .btn.ghost[aria-current='page'] {
   background: var(--brass);
   border-color: var(--brass);
   color: #231d08;
+}
+
+.btn.icon {
+  padding: 10px 12px;
+  font-size: 15px;
+  line-height: 1;
 }
 
 .btn.ghost.dark {
@@ -544,6 +604,22 @@ summary:focus-visible {
 
 .sheet .mv.enemy { color: var(--signal); }
 .sheet .mv.player { color: #2e5c44; }
+
+.sheet button.mv {
+  background: none;
+  border: 0;
+  padding: 0 3px;
+  margin: 0 -3px;
+  border-radius: 4px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sheet button.mv:disabled { cursor: default; }
+.sheet button.mv:not(:disabled):hover { text-decoration: underline; }
+.sheet button.mv:focus-visible { outline: 2px solid var(--signal); outline-offset: 0; }
+.sheet button.mv.sel { background: rgb(176 141 24 / 30%); }
 
 details {
   background: rgb(0 0 0 / 22%);
@@ -639,6 +715,12 @@ details b { color: var(--brass); }
   .pc,
   .pc.pop {
     animation: none;
+    transition: none;
+  }
+
+  .btn,
+  .chip,
+  .slot {
     transition: none;
   }
 }
