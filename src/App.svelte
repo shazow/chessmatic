@@ -794,18 +794,18 @@
         solution: placed.map((piece) => ({ ...piece })),
       }, data);
       const url = sharedPuzzleUrl(location, code);
-      shareUrl = url;
       const copied = await copyText(url);
-      messageHtml = copied
-        ? '<b>Replay link copied.</b> It loads this puzzle with your setup placed, ready to play.'
-        : '<b>Replay link ready.</b> Use Copy link to share this puzzle with your setup placed.';
       if (copied) {
+        messageHtml = '<b>Replay link copied.</b> It loads this puzzle with your setup placed, ready to play.';
         shareCopied = true;
         if (shareCopiedTimer !== null) clearTimeout(shareCopiedTimer);
         shareCopiedTimer = window.setTimeout(() => {
           shareCopied = false;
           shareCopiedTimer = null;
         }, 1600);
+      } else {
+        shareUrl = url;
+        messageHtml = '<b>Replay link ready.</b> Use Copy link to share this puzzle with your setup placed.';
       }
     } catch (error) {
       messageHtml = error instanceof Error ? error.message : 'The replay link could not be created.';
