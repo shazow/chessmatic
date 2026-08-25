@@ -19,16 +19,21 @@ export const PIECE_NAME: Record<PieceType, string> = {
 export const fileOf = (col: number): string => 'abcdefgh'[col] ?? '?';
 export const squareName = (col: number, row: number): string => `${fileOf(col)}${row + 1}`;
 
-export function verdictFor(spend: number, par: number, custom: boolean): [string, string] {
+export function verdictFor(spend: number, par: number, optimalCost?: number): [string, string] {
+  if (optimalCost === undefined) {
+    if (spend < par) return [`${par - spend} under target.`, 'You beat the puzzle’s stated target.'];
+    if (spend === par) return ['Target met.', 'You matched the puzzle’s stated target.'];
+    return [`${spend - par} over target.`, 'You won. Can you beat the stated target?'];
+  }
+  if (spend === optimalCost) {
+    const relation = spend === par ? 'par' : `${par - spend} under par`;
+    return [`Optimal — ${relation}.`, 'That is the cheapest possible answer.'];
+  }
   if (spend < par) {
-    return [`${par - spend} under par.`, custom
-      ? 'You beat the puzzle’s stated target.'
-      : 'You found a new club record.'];
+    return [`${par - spend} under par.`, `Strong play. The optimal score is ${optimalCost}.`];
   }
   if (spend === par) {
-    return ['Par. Perfect play.', custom
-      ? 'You matched the puzzle’s stated target.'
-      : 'That is the cheapest possible answer.'];
+    return ['Par.', `Club standard. The optimal score is ${optimalCost}.`];
   }
   const over = spend - par;
   if (over === 1) return ['Bogey — one over.', 'A cheaper answer exists. Feel like finding it?'];

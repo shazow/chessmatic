@@ -7,28 +7,28 @@ const data = JSON.parse(fs.readFileSync('chessmatic-puzzles.json', 'utf8')) as P
 const appPath = process.env.GITHUB_ACTIONS ? '/chessmatic/' : '/';
 const firstPuzzleName = data.puzzles[0].name;
 
-test('places the par setup and completes a battle', async ({ page }) => {
+test('places the optimal setup and completes a battle', async ({ page }) => {
   await page.goto(appPath);
   await expect(page.getByRole('heading', { name: /Chessmatic/ })).toBeVisible();
   await expect(page.getByText(firstPuzzleName)).toBeVisible();
 
   await page.getByRole('button', { name: 'Spoiler' }).click();
-  await page.getByRole('button', { name: 'Reveal par?' }).click();
-  await expect(page.getByText('Spend').locator('..')).toContainText(`${data.puzzles[0].par} pts`);
+  await page.getByRole('button', { name: 'Reveal optimal?' }).click();
+  await expect(page.getByText('Spend').locator('..')).toContainText(`${data.puzzles[0].optimalCost} pts`);
 
   await page.getByRole('button', { name: 'Start battle' }).click();
   await page.getByRole('button', { name: 'Finish ≫' }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole('heading', { name: 'Position won' })).toBeVisible();
-  await expect(dialog).toContainText('Par. Perfect play.');
+  await expect(dialog).toContainText('That is the cheapest possible answer.');
 });
 
 test('creates and loads a custom puzzle with the legacy hash format', async ({ page }) => {
   await page.goto(appPath);
   await page.getByRole('button', { name: 'Editor' }).click();
   await page.getByLabel('Title').fill('Browser Test');
-  await page.getByLabel('Par').fill('3');
+  await page.getByLabel('Target').fill('3');
   await page.getByLabel('Description').fill('Made in Playwright.');
   await page.getByRole('button', { name: /pawn · 2/i }).click();
   await page.getByRole('gridcell', { name: 'a1' }).click();
@@ -41,7 +41,7 @@ test('creates and loads a custom puzzle with the legacy hash format', async ({ p
   const code = encodePuzzle({
     name: 'Old Link',
     desc: 'Still compatible.',
-    par: 2,
+    targetCost: 2,
     enemy: [{ type: 'P', col: 0, row: 0 }],
   }, data);
   await page.goto(`${appPath}#?puzzle=${code}`);

@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "board": {
     "cols": 8,
     "rows": 3
@@ -39,7 +39,8 @@
           "row": 1
         }
       ],
-      "par": 2,
+      "par": 4,
+      "optimalCost": 2,
       "solution": [
         {
           "type": "P",
@@ -59,7 +60,8 @@
           "row": 1
         }
       ],
-      "par": 4,
+      "par": 6,
+      "optimalCost": 4,
       "solution": [
         {
           "type": "P",
@@ -94,7 +96,8 @@
           "row": 2
         }
       ],
-      "par": 5,
+      "par": 7,
+      "optimalCost": 5,
       "solution": [
         {
           "type": "R",
@@ -124,7 +127,8 @@
           "row": 2
         }
       ],
-      "par": 5,
+      "par": 7,
+      "optimalCost": 5,
       "solution": [
         {
           "type": "B",
@@ -154,7 +158,8 @@
           "row": 1
         }
       ],
-      "par": 7,
+      "par": 9,
+      "optimalCost": 7,
       "solution": [
         {
           "type": "R",
@@ -184,7 +189,8 @@
           "row": 2
         }
       ],
-      "par": 7,
+      "par": 9,
+      "optimalCost": 7,
       "solution": [
         {
           "type": "N",

@@ -21,10 +21,11 @@ export interface Puzzle {
   desc: string;
   enemy: SetupPiece[];
   par: number;
+  optimalCost: number;
   solution: SetupPiece[];
 }
 
-export interface CustomPuzzle extends Omit<Puzzle, 'solution'> {
+export interface CustomPuzzle extends Omit<Puzzle, 'optimalCost' | 'solution'> {
   custom: true;
   shareCode: string;
   solution: [];
@@ -90,6 +91,6 @@ export interface Engine {
 export interface SharedPuzzle {
   name: string;
   desc: string;
-  par: number;
+  targetCost: number;
   enemy: SetupPiece[];
 }

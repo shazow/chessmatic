@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import fs from 'node:fs';
-import { solvePar } from '../src/lib/solver';
+import { findWinningSolutionAtCost, solveOptimal } from '../src/lib/solver';
 import type { PuzzleData } from '../src/lib/types';
 
 const pathArgument = process.argv[2] && !process.argv[2].startsWith('--')
@@ -12,16 +12,18 @@ const data = JSON.parse(fs.readFileSync(pathArgument, 'utf8')) as PuzzleData;
 
 let mismatches = 0;
 for (const puzzle of data.puzzles) {
-  const { par, solution } = solvePar(data, puzzle.enemy);
-  const same = puzzle.par === par;
+  const { optimalCost, solution } = solveOptimal(data, puzzle.enemy);
+  const optimalMatches = puzzle.optimalCost === optimalCost;
   if (check) {
-    console.log(`${puzzle.id} stored par ${puzzle.par ?? '—'} | solved par ${par} ${same ? 'OK' : '** MISMATCH **'}`);
-    if (!same) mismatches += 1;
+    const parAchievable = findWinningSolutionAtCost(data, puzzle.enemy, puzzle.par) !== null;
+    const valid = optimalMatches && parAchievable;
+    console.log(`${puzzle.id} stored optimal ${puzzle.optimalCost ?? '—'} | solved optimal ${optimalCost} | par ${puzzle.par} ${parAchievable ? 'achievable' : 'unreachable'} ${valid ? 'OK' : '** MISMATCH **'}`);
+    if (!valid) mismatches += 1;
   } else {
-    if (par === null || solution === null) throw new Error(`${puzzle.id} has no solution`);
-    puzzle.par = par;
+    if (optimalCost === null || solution === null) throw new Error(`${puzzle.id} has no solution`);
+    puzzle.optimalCost = optimalCost;
     puzzle.solution = solution;
-    console.log(`${puzzle.id} par ${par} | ${JSON.stringify(solution)}`);
+    console.log(`${puzzle.id} optimal ${optimalCost} | ${JSON.stringify(solution)}`);
   }
 }
 

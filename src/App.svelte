@@ -29,7 +29,8 @@
     verdictFor,
   } from './lib/ui';
 
-  interface AppPuzzle extends Puzzle {
+  interface AppPuzzle extends Omit<Puzzle, 'optimalCost'> {
+    optimalCost?: number;
     custom?: boolean;
     shareCode?: string;
   }
@@ -84,7 +85,7 @@
   let resultShareFallback = $state('');
   let editorName = $state('');
   let editorDesc = $state('');
-  let editorPar = $state(5);
+  let editorTarget = $state(5);
   let drag = $state<DragState | null>(null);
   let suppressClick = false;
   let resultCard = $state<HTMLDivElement | undefined>();
@@ -177,7 +178,9 @@
     puzzles = puzzles.filter((candidate) => !candidate.custom);
     puzzles.push({
       id: 'shared-puzzle',
-      ...puzzle,
+      name: puzzle.name,
+      desc: puzzle.desc,
+      par: puzzle.targetCost,
       enemy: puzzle.enemy.map((piece) => ({ ...piece })),
       solution: [],
       custom: true,
@@ -399,14 +402,14 @@
     const win = simulation.result === 'win';
     if (win) {
       solved[currentIndex] = true;
-      const [scoreVerdict, verdict] = verdictFor(spend, currentPuzzle.par, Boolean(currentPuzzle.custom));
+      const [scoreVerdict, verdict] = verdictFor(spend, currentPuzzle.par, currentPuzzle.optimalCost);
       resultView = {
         win,
         title: 'Position won',
         verdict,
         spend,
         par: currentPuzzle.par,
-        parLabel: 'par',
+        parLabel: currentPuzzle.custom ? 'target' : 'par',
         scoreVerdict,
         canShare: true,
         canNext: currentIndex < puzzles.length - 1,
@@ -448,14 +451,14 @@
     if (playing || mode !== 'place') return;
     if (!spoilerArmed) {
       spoilerArmed = true;
-      messageHtml = 'This places the cheapest known setup on the board. Tap again to spoil — or Clear to keep hunting.';
+      messageHtml = 'This places the optimal setup on the board. Tap again to spoil — or Clear to keep hunting.';
       return;
     }
     disarmSpoiler();
     placed = currentPuzzle.solution.map((piece) => ({ ...piece }));
     selectedType = null;
     threatFor = null;
-    messageHtml = '<b>Par setup placed.</b> Press Start battle to watch why it works — then Clear and see if you can rediscover it cold.';
+    messageHtml = '<b>Optimal setup placed.</b> Press Start battle to watch why it works — then Clear and see if you can rediscover it cold.';
   }
 
   function startEditor(): void {
@@ -483,7 +486,7 @@
       const puzzle = {
         name: editorName,
         desc: editorDesc,
-        par: Number(editorPar),
+        targetCost: Number(editorTarget),
         enemy: editorPieces.map((piece) => ({ ...piece })),
       };
       const code = encodePuzzle(puzzle, data);
@@ -610,12 +613,12 @@
 
     <section class="mission" aria-labelledby="puzzle-name">
       <div><b id="puzzle-name">{currentPuzzle.name}</b><div class="par">{currentPuzzle.desc}</div></div>
-      <div class="par">Par <strong>{currentPuzzle.par}</strong> pts</div>
+      <div class="par">{currentPuzzle.custom ? 'Target' : 'Par'} <strong>{currentPuzzle.par}</strong> pts</div>
     </section>
   {:else}
     <section class="editor-form" aria-label="Puzzle details">
       <label>Title<input maxlength="80" bind:value={editorName}></label>
-      <label>Par<input type="number" min="1" max="999" step="1" bind:value={editorPar}></label>
+      <label>Target<input type="number" min="1" max="999" step="1" bind:value={editorTarget}></label>
       <label>Description<input maxlength="240" bind:value={editorDesc}></label>
     </section>
   {/if}
@@ -687,7 +690,7 @@
     <p><b>2. Creep.</b> No strike? Take a safe move toward the nearest enemy. Sliders creep one square; knights leap normally.</p>
     <p><b>3. Mind the price tag.</b> A square is unsafe if an equal-or-cheaper enemy attacks it, or a pricier enemy attacks it with no ally defending it. A capture is still allowed through danger when its target costs at least as much as the attacker.</p>
     <p>No safe advance? The piece makes its least-bad legal move — even into trouble. A piece with no legal move is pinned (⊘) until the position changes.</p>
-    <p>Eliminate every enemy within 20 rounds. A full round with no moves is an instant loss; so is reaching the limit with enemies standing. Your score is points spent. Hit par and you’ve found the cheapest solution.</p>
+    <p>Eliminate every enemy within 20 rounds. A full round with no moves is an instant loss; so is reaching the limit with enemies standing. Your score is points spent. Beat par to climb the club board; match the optimal score to prove there is no cheaper solution.</p>
   </details>
 
   <div class="utility-actions">
@@ -696,7 +699,7 @@
     </button>
     {#if !editing && currentPuzzle.solution.length}
       <button class:armed={spoilerArmed} class="btn ghost spoiler" type="button" disabled={playing} onclick={revealSpoiler}>
-        {spoilerArmed ? 'Reveal par?' : 'Spoiler'}
+        {spoilerArmed ? 'Reveal optimal?' : 'Spoiler'}
       </button>
     {/if}
   </div>
@@ -723,7 +726,7 @@
       <div class="verdict">{resultView.verdict}</div>
       <div class="score">
         {resultView.win ? resultView.spend : '—'}
-        <small>{resultView.win ? ` pts · par ${resultView.par} · ${resultView.scoreVerdict}` : `${resultView.parLabel} ${resultView.par} pts`}</small>
+        <small>{resultView.win ? ` pts · ${resultView.parLabel} ${resultView.par} · ${resultView.scoreVerdict}` : `${resultView.parLabel} ${resultView.par} pts`}</small>
       </div>
       {#if resultShareFallback}
         <input id="shareOut" class="share-out" readonly value={resultShareFallback} aria-label="Shareable result text">
