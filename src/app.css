@@ -117,8 +117,20 @@ h1 .knight {
   font-weight: 600;
 }
 
-.chip.solved::after {
-  content: ' ✓';
+.chip.solved:not([aria-pressed='true']) {
+  border-color: #5f9c77;
+  color: #a9e0bd;
+}
+
+.chip .best {
+  margin-left: 5px;
+  font-size: 11px;
+  opacity: .85;
+}
+
+.chip.next:not([aria-pressed='true']) {
+  border-color: var(--brass);
+  color: var(--brass);
 }
 
 .mission {

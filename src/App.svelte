@@ -96,7 +96,7 @@
   let selectedType = $state<PieceType | null>(null);
   let mode = $state<GameMode>('place');
   let playing = $state(false);
-  let solved = $state<Record<number, boolean>>({});
+  let progress = $state<Record<string, number>>(readProgress());
   let lastRun = $state<Simulation | null>(null);
   let cursor = $state(0);
   let maxSeen = $state(0);
@@ -127,6 +127,9 @@
     ? data.sides.enemy.deploy
     : data.sides.player.deploy) as [number, number]);
   let spend = $derived(placed.reduce((total, piece) => total + data.pieceCosts[piece.type], 0));
+  let nextPuzzleId = $derived(
+    puzzles.slice(0, officialPuzzleCount).find((puzzle) => progress[puzzle.id] === undefined)?.id ?? null,
+  );
   let inRun = $derived(mode === 'battle' || mode === 'done');
   let atEnd = $derived(lastRun !== null && cursor >= lastRun.events.length);
   let runView = $derived.by(() => (lastRun ? boardStateAt(lastRun, cursor) : null));
@@ -251,6 +254,33 @@
 
   function deployLabel(): string {
     return `${fileOf(deployment[0])}–${fileOf(deployment[1])}`;
+  }
+
+  function readProgress(): Record<string, number> {
+    try {
+      const raw = localStorage.getItem('puzzleProgress');
+      if (!raw) return {};
+      const parsed = JSON.parse(raw) as unknown;
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+      const clean: Record<string, number> = {};
+      for (const [id, best] of Object.entries(parsed)) {
+        if (typeof best === 'number' && Number.isInteger(best) && best > 0) clean[id] = best;
+      }
+      return clean;
+    } catch {
+      return {};
+    }
+  }
+
+  function recordBest(puzzleId: string, cost: number): void {
+    const previous = progress[puzzleId];
+    if (previous !== undefined && previous <= cost) return;
+    progress[puzzleId] = cost;
+    try {
+      localStorage.setItem('puzzleProgress', JSON.stringify(progress));
+    } catch {
+      // Private mode or blocked storage — progress just won't persist.
+    }
   }
 
   function readHowToOpen(): boolean {
@@ -624,7 +654,7 @@
     mode = 'done';
     const win = simulation.result === 'win';
     if (win) {
-      solved[currentIndex] = true;
+      if (currentPuzzle.kind === 'official') recordBest(currentPuzzle.id, spend);
       const benchmark = benchmarkCost(currentPuzzle);
       const [scoreVerdict, verdict] = verdictFor(spend, benchmark, optimalCost(currentPuzzle));
       resultView = {
@@ -896,13 +926,18 @@
   {#if !editing}
     <div class="chips" role="group" aria-label="Choose a puzzle">
       {#each puzzles.slice(0, officialPuzzleCount) as puzzle, index}
+        {@const best = progress[puzzle.id]}
         <button
-          class:solved={solved[index]}
+          class:solved={best !== undefined}
+          class:next={puzzle.id === nextPuzzleId}
           class="chip"
           type="button"
           aria-pressed={index === currentIndex}
+          title={best !== undefined
+            ? `Solved — best ${best} pts`
+            : puzzle.id === nextPuzzleId ? 'Start here' : undefined}
           onclick={() => selectPuzzle(index)}
-        >{toRoman(index + 1)}</button>
+        >{toRoman(index + 1)}{#if best !== undefined}<span class="best">{best}</span>{/if}</button>
       {/each}
       <a
         class="chip"

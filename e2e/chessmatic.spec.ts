@@ -23,6 +23,12 @@ test('places the optimal setup and completes a battle', async ({ page }) => {
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole('heading', { name: 'Position won' })).toBeVisible();
   await expect(dialog).toContainText('That is the cheapest possible answer.');
+
+  await page.reload();
+  const solvedChip = page.getByRole('button', { name: new RegExp(`^I ?${data.puzzles[0].optimalCost}$`) });
+  await expect(solvedChip).toBeVisible();
+  await expect(solvedChip).toHaveAttribute('title', `Solved — best ${data.puzzles[0].optimalCost} pts`);
+  await expect(page.getByRole('button', { name: 'II', exact: true })).toHaveAttribute('title', 'Start here');
 });
 
 test('steps through the scoresheet and scrubs the previous run', async ({ page }) => {

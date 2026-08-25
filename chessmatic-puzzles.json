@@ -31,7 +31,7 @@
     {
       "id": "a-challenger-appears",
       "name": "A challenger appears",
-      "desc": "Each piece is a deterministic player following simple rules",
+      "desc": "Each piece plays itself: capture when it is safe or profitable, otherwise creep forward. Win for less.",
       "enemy": [
         {
           "type": "P",
@@ -39,7 +39,7 @@
           "row": 1
         }
       ],
-      "par": 4,
+      "par": 3,
       "optimalCost": 2,
       "solution": [
         {
@@ -50,9 +50,61 @@
       ]
     },
     {
+      "id": "lone-knight",
+      "name": "Lone Knight",
+      "desc": "A knight prowls the middle ground. Fancy pieces fear cheap ones — even a pawn can see it off.",
+      "enemy": [
+        {
+          "type": "N",
+          "col": 1,
+          "row": 1
+        }
+      ],
+      "par": 4,
+      "optimalCost": 2,
+      "solution": [
+        {
+          "type": "P",
+          "col": 4,
+          "row": 1
+        }
+      ]
+    },
+    {
+      "id": "first-exchange",
+      "name": "First Exchange",
+      "desc": "A bishop behind a pawn screen. Spend less than you kill — something has to give.",
+      "enemy": [
+        {
+          "type": "B",
+          "col": 1,
+          "row": 1
+        },
+        {
+          "type": "P",
+          "col": 2,
+          "row": 0
+        },
+        {
+          "type": "P",
+          "col": 2,
+          "row": 2
+        }
+      ],
+      "par": 7,
+      "optimalCost": 5,
+      "solution": [
+        {
+          "type": "R",
+          "col": 4,
+          "row": 1
+        }
+      ]
+    },
+    {
       "id": "lone-rook",
       "name": "Lone Rook",
-      "desc": "Set your starting position and watch it play out.",
+      "desc": "The rook strikes first and owns every open line. Nothing survives out there alone — screen up.",
       "enemy": [
         {
           "type": "R",
@@ -60,7 +112,7 @@
           "row": 1
         }
       ],
-      "par": 6,
+      "par": 7,
       "optimalCost": 4,
       "solution": [
         {
@@ -76,76 +128,9 @@
       ]
     },
     {
-      "id": "first-exchange",
-      "name": "First Exchange",
-      "desc": "A bishop behind a pawn screen. Something has to give.",
-      "enemy": [
-        {
-          "type": "B",
-          "col": 1,
-          "row": 1
-        },
-        {
-          "type": "P",
-          "col": 2,
-          "row": 0
-        },
-        {
-          "type": "P",
-          "col": 2,
-          "row": 2
-        }
-      ],
-      "par": 7,
-      "optimalCost": 5,
-      "solution": [
-        {
-          "type": "R",
-          "col": 4,
-          "row": 1
-        }
-      ]
-    },
-    {
-      "id": "open-file",
-      "name": "Open File",
-      "desc": "The rook strikes first and owns its rank.",
-      "enemy": [
-        {
-          "type": "R",
-          "col": 0,
-          "row": 0
-        },
-        {
-          "type": "P",
-          "col": 2,
-          "row": 1
-        },
-        {
-          "type": "P",
-          "col": 1,
-          "row": 2
-        }
-      ],
-      "par": 7,
-      "optimalCost": 5,
-      "solution": [
-        {
-          "type": "B",
-          "col": 4,
-          "row": 0
-        },
-        {
-          "type": "P",
-          "col": 4,
-          "row": 1
-        }
-      ]
-    },
-    {
       "id": "her-majesty",
       "name": "Her Majesty",
-      "desc": "Ten points of royalty. Beat her for less.",
+      "desc": "Ten points of royalty — but she refuses any square a cheaper piece defends. Beat her for less.",
       "enemy": [
         {
           "type": "Q",
@@ -176,7 +161,7 @@
     {
       "id": "knight-errant",
       "name": "Knight Errant",
-      "desc": "A knight roams ahead of a corner rook. The club’s final board.",
+      "desc": "A knight roams ahead of a corner rook. Everything you have learned, all at once. The club’s final board.",
       "enemy": [
         {
           "type": "N",
@@ -189,7 +174,7 @@
           "row": 2
         }
       ],
-      "par": 9,
+      "par": 10,
       "optimalCost": 7,
       "solution": [
         {
