@@ -603,13 +603,14 @@ summary:focus-visible {
   max-height: 154px;
   font: 13px/1.7 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   box-shadow: 0 2px 0 rgb(0 0 0 / 35%);
-  background-image: repeating-linear-gradient(transparent 0 21px, rgb(43 43 38 / 8%) 21px 22px);
 }
 
 .sheet .moves {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  background-image: repeating-linear-gradient(transparent 0 21.1px, rgb(43 43 38 / 8%) 21.1px 22.1px);
+  background-attachment: local;
 }
 
 .sheet-grip {
