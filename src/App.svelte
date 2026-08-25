@@ -587,7 +587,11 @@
 
 <main class="wrap">
   <header>
-    <h1><span class="knight">♞</span>Chessmatic</h1>
+    <h1>
+      <a class="brand-link" href="./" aria-label="Reset Chessmatic">
+        <span class="knight">♞</span>Chessmatic
+      </a>
+    </h1>
     <div class="tagline">Chess Puzzle Autobattler</div>
   </header>
 

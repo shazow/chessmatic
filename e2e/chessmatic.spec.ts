@@ -5,15 +5,16 @@ import type { PuzzleData } from '../src/lib/types';
 
 const data = JSON.parse(fs.readFileSync('chessmatic-puzzles.json', 'utf8')) as PuzzleData;
 const appPath = process.env.GITHUB_ACTIONS ? '/chessmatic/' : '/';
+const firstPuzzleName = data.puzzles[0].name;
 
 test('places the par setup and completes a battle', async ({ page }) => {
   await page.goto(appPath);
   await expect(page.getByRole('heading', { name: /Chessmatic/ })).toBeVisible();
-  await expect(page.getByText('№1 · Lone Rook')).toBeVisible();
+  await expect(page.getByText(firstPuzzleName)).toBeVisible();
 
   await page.getByRole('button', { name: 'Spoiler' }).click();
   await page.getByRole('button', { name: 'Reveal par?' }).click();
-  await expect(page.getByText('Spend').locator('..')).toContainText('4 pts');
+  await expect(page.getByText('Spend').locator('..')).toContainText(`${data.puzzles[0].par} pts`);
 
   await page.getByRole('button', { name: 'Start battle' }).click();
   await page.getByRole('button', { name: 'Finish ≫' }).click();
@@ -46,6 +47,12 @@ test('creates and loads a custom puzzle with the legacy hash format', async ({ p
   await page.goto(`${appPath}#?puzzle=${code}`);
   await expect(page.getByText('Old Link')).toBeVisible();
   await expect(page.getByText('Still compatible.')).toBeVisible();
+
+  const brand = page.getByRole('link', { name: 'Reset Chessmatic' });
+  await expect(brand).toHaveAttribute('href', './');
+  await brand.click();
+  await expect(page).toHaveURL(new RegExp(`${appPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`));
+  await expect(page.getByText(firstPuzzleName)).toBeVisible();
 });
 
 test('supports keyboard placement', async ({ page }) => {
@@ -101,7 +108,7 @@ test('reloads the production app while offline', async ({ page, context }) => {
   try {
     await page.reload({ waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: /Chessmatic/ })).toBeVisible();
-    await expect(page.getByText('№1 · Lone Rook')).toBeVisible();
+    await expect(page.getByText(firstPuzzleName)).toBeVisible();
   } finally {
     await context.setOffline(false);
   }
