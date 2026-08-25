@@ -28,8 +28,21 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{html,js,css,json,svg,png}'],
-        navigateFallback: 'index.html',
+        // Hashed assets and icons are precached; index.html is deliberately
+        // NOT precached — navigations go network-first below so a fresh load
+        // always gets the latest deploy, falling back to cache when offline.
+        globPatterns: ['**/*.{js,css,json,svg,png}'],
+        navigateFallback: null,
+        runtimeCaching: [
+          {
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'pages',
+              networkTimeoutSeconds: 4,
+            },
+          },
+        ],
       },
     }),
   ],
