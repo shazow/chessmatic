@@ -1,0 +1,8 @@
+.devenv*
+.direnv
+devenv.local.nix
+devenv.local.yaml
+dist
+node_modules
+playwright-report
+test-results
