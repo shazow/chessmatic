@@ -11,7 +11,7 @@ export function validatePuzzle(puzzle: unknown, data: PuzzleData): SharedPuzzle 
   const name = typeof candidate.name === 'string' ? candidate.name.trim() : '';
   const desc = typeof candidate.desc === 'string' ? candidate.desc.trim() : '';
   const targetCost = Number(candidate.targetCost);
-  if (!name || name.length > 80) throw new Error('Puzzle title must be 1–80 characters.');
+  if (name.length > 80) throw new Error('Puzzle title must be at most 80 characters.');
   if (desc.length > 240) throw new Error('Puzzle description must be at most 240 characters.');
   if (!Number.isInteger(targetCost) || targetCost < 1 || targetCost > 999) {
     throw new Error('Target must be a whole number from 1–999.');

@@ -50,6 +50,17 @@ test('solution-free codes stay compatible in both directions', () => {
   expect(decoded.solution).toBeUndefined();
 });
 
+test('titles are optional but still bounded', () => {
+  const puzzle = {
+    name: '',
+    desc: '',
+    targetCost: 2,
+    enemy: [{ type: 'P', col: 0, row: 0 }],
+  } as const;
+  expect(decodePuzzle(encodePuzzle(puzzle, data), data)).toEqual(puzzle);
+  expect(() => encodePuzzle({ ...puzzle, name: 'x'.repeat(81) }, data)).toThrow(/at most 80/);
+});
+
 describe('invalid shared puzzles', () => {
   test('reject malformed and out-of-zone positions', () => {
     expect(() => decodePuzzle('not-json', data)).toThrow(/could not be read/);

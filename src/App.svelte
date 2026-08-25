@@ -105,6 +105,8 @@
   let reduceMotionRun = false;
   let shareCopied = $state(false);
   let shareCopiedTimer: number | null = null;
+  let linkCopied = $state(false);
+  let linkCopiedTimer: number | null = null;
   let threatFor = $state<string | null>(null);
   let spoilerArmed = $state(false);
   let shareUrl = $state('');
@@ -303,7 +305,7 @@
     puzzles.push({
       kind: 'shared',
       id: 'shared-puzzle',
-      name: puzzle.name,
+      name: puzzle.name || 'Custom Puzzle',
       desc: puzzle.desc,
       targetCost: puzzle.targetCost,
       enemy: puzzle.enemy.map((piece) => ({ ...piece })),
@@ -363,7 +365,7 @@
     disarmSpoiler();
     invalidateRun();
     const puzzle = puzzles[index];
-    if (puzzle.kind === 'shared') showPuzzleLink(puzzle.shareCode);
+    if (puzzle.kind === 'shared') setPuzzleHash(puzzle.shareCode);
     else {
       clearAppHash();
       shareUrl = '';
@@ -721,11 +723,8 @@
       placed = [];
       selectedType = null;
       threatFor = null;
-      const url = showPuzzleLink(code);
-      const copied = await copyText(url);
-      messageHtml = copied
-        ? '<b>Puzzle saved and link copied.</b> Set your force, then test the battle.'
-        : '<b>Puzzle saved.</b> Use Copy link to share it, then set your force and test the battle.';
+      showPuzzleLink(code);
+      messageHtml = '<b>Puzzle saved.</b> Use Copy puzzle link to share it, then set your force and test the battle.';
     } catch (error) {
       messageHtml = error instanceof Error ? error.message : 'The puzzle could not be saved.';
     }
@@ -758,7 +757,14 @@
   async function copyPuzzleLink(): Promise<void> {
     if (!(await copyText(shareUrl))) {
       document.querySelector<HTMLInputElement>('#puzzleShareOut')?.select();
+      return;
     }
+    linkCopied = true;
+    if (linkCopiedTimer !== null) clearTimeout(linkCopiedTimer);
+    linkCopiedTimer = window.setTimeout(() => {
+      linkCopied = false;
+      linkCopiedTimer = null;
+    }, 1600);
   }
 
   async function shareResult(): Promise<void> {
@@ -805,7 +811,7 @@
         }, 1600);
       } else {
         shareUrl = url;
-        messageHtml = '<b>Replay link ready.</b> Use Copy link to share this puzzle with your setup placed.';
+        messageHtml = '<b>Replay link ready.</b> Use Copy puzzle link to share this puzzle with your setup placed.';
       }
     } catch (error) {
       messageHtml = error instanceof Error ? error.message : 'The replay link could not be created.';
@@ -840,7 +846,6 @@
       } else if (route.kind === 'shared') {
         const shared = decodePuzzle(route.code, data);
         installSharedPuzzle(shared, route.code);
-        shareUrl = location.href;
         if (shared.solution?.length) {
           placed = shared.solution.map((piece) => ({ ...piece }));
           messageHtml = 'This link includes a shared solution, already set up. Press Play to watch it play out.';
@@ -873,6 +878,7 @@
       window.removeEventListener('hashchange', routeHash);
       stopTimer();
       if (shareCopiedTimer !== null) clearTimeout(shareCopiedTimer);
+      if (linkCopiedTimer !== null) clearTimeout(linkCopiedTimer);
     };
   });
 </script>
@@ -920,7 +926,7 @@
     </section>
   {:else}
     <section class="editor-form" aria-label="Puzzle details">
-      <label>Title<input maxlength="80" bind:value={editorName}></label>
+      <label>Title<input maxlength="80" placeholder="Custom Puzzle" bind:value={editorName}></label>
       <label>Target<input type="number" min="1" max="999" step="1" bind:value={editorTarget}></label>
       <label>Description<input maxlength="240" bind:value={editorDesc}></label>
     </section>
@@ -1018,7 +1024,12 @@
   {#if shareUrl && !editing}
     <div class="puzzle-share">
       <input id="puzzleShareOut" class="share-out" readonly value={shareUrl} aria-label="Shareable puzzle link">
-      <button class="btn ghost" type="button" onclick={() => void copyPuzzleLink()}>Copy link</button>
+      <button
+        class="btn ghost"
+        class:share-copied={linkCopied}
+        type="button"
+        onclick={() => void copyPuzzleLink()}
+      >{linkCopied ? '✓ Copied' : 'Copy puzzle link'}</button>
     </div>
   {/if}
 
