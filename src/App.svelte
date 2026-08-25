@@ -239,9 +239,11 @@
       } else {
         const hint = lastRun.stalemate
           ? 'Dead position: nobody left willing to move. You need a piece that can break through.'
-          : lastRun.timeout
-            ? 'Round 20 — time, and the house keeps the board. Apply pressure faster.'
-            : 'Your force was eliminated. Study their ranges and go again.';
+          : lastRun.repetition
+            ? 'Repetition: the pieces are circling with no progress, and the house keeps the board. Change your angle of attack.'
+            : lastRun.timeout
+              ? 'Round 20 — time, and the house keeps the board. Apply pressure faster.'
+              : 'Your force was eliminated. Study their ranges and go again.';
         entries.push({ kind: 'note', html: `<span class="result lost"><b>Position lost.</b> ${hint}</span>` });
       }
     }

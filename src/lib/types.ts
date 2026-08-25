@@ -69,6 +69,7 @@ export interface Simulation {
   events: SimulationStep[];
   initialPieces: BattlePiece[];
   stalemate?: true;
+  repetition?: true;
   timeout?: true;
 }
 
