@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
+  import logoUrl from '../art/icon-256px.png';
   import rawData from '../chessmatic-puzzles.json';
   import Board, { type DragSource } from './lib/components/Board.svelte';
   import PieceTray from './lib/components/PieceTray.svelte';
@@ -891,7 +892,7 @@
   <header>
     <h1>
       <a class="brand-link" href="./" aria-label="Reset Chessmatic">
-        <span class="knight">♞</span>Chessmatic
+        <img class="logo" src={logoUrl} alt="">Chessmatic
       </a>
     </h1>
     <div class="tagline">Chess Puzzle Autobattler</div>

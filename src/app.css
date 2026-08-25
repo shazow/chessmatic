@@ -68,10 +68,11 @@ h1 {
   text-decoration: none;
 }
 
-h1 .knight {
-  color: var(--brass);
-  letter-spacing: 0;
-  margin-right: .15em;
+h1 .logo {
+  height: 1.15em;
+  width: auto;
+  vertical-align: -0.2em;
+  margin-right: .25em;
 }
 
 .tagline {
