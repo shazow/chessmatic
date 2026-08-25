@@ -600,7 +600,7 @@ summary:focus-visible {
   border-radius: 10px;
   padding: 10px 14px 2px;
   min-height: 64px;
-  max-height: 110px;
+  max-height: 154px;
   font: 13px/1.7 ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   box-shadow: 0 2px 0 rgb(0 0 0 / 35%);
   background-image: repeating-linear-gradient(transparent 0 21px, rgb(43 43 38 / 8%) 21px 22px);

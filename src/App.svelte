@@ -545,7 +545,7 @@
     });
   }
 
-  const SHEET_DEFAULT_HEIGHT = 110;
+  const SHEET_DEFAULT_HEIGHT = 154;
   const SHEET_EXPANDED_HEIGHT = SHEET_DEFAULT_HEIGHT * 3;
 
   function toggleSheetHeight(): void {
