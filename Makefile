@@ -1,0 +1,2 @@
+run:
+	devenv shell run
