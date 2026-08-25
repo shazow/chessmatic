@@ -290,6 +290,12 @@ export function createEngine(data: PuzzleData): Engine {
     const initialResult = battleStatus(pieces);
     if (initialResult) return { result: initialResult, events, initialPieces };
 
+    const positionKey = () => pieces
+      .filter((piece) => piece.alive)
+      .map((piece) => `${piece.id}@${piece.col},${piece.row}`)
+      .join('|');
+    const seenPositions = new Set([positionKey()]);
+
     for (let round = 0; round < roundLimit; round += 1) {
       let actions = 0;
       for (const pieceId of initiative) {
@@ -313,6 +319,9 @@ export function createEngine(data: PuzzleData): Engine {
         if (status) return { result: status, events, initialPieces };
       }
       if (!actions) return { result: 'loss', events, initialPieces, stalemate: true };
+      const key = positionKey();
+      if (seenPositions.has(key)) return { result: 'loss', events, initialPieces, repetition: true };
+      seenPositions.add(key);
     }
     return { result: 'loss', events, initialPieces, timeout: true };
   }

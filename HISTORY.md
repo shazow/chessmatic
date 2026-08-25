@@ -7,6 +7,7 @@ Update since commit when this file was last updated.)
 
 ## 2026-08-25
 
+- Ended battles early with a repetition loss when the position repeats.
 - Added daily and seeded random puzzles with shareable URL routes.
 - Added an opening puzzle and revised the six-puzzle club progression.
 - Separated par from optimal cost and displayed saved best scores for club puzzles.

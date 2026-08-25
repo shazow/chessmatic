@@ -94,6 +94,18 @@ describe('stored puzzles', () => {
   });
 });
 
+test('a battle stuck in a repeating cycle ends early as a loss', () => {
+  const simulation = engine.simulate(
+    [{ type: 'N', col: 5, row: 0 }],
+    [{ type: 'P', col: 3, row: 1 }],
+  );
+
+  expect(simulation.result).toBe('loss');
+  expect(simulation.repetition).toBe(true);
+  expect(simulation.timeout).toBeUndefined();
+  expect(simulation.events[simulation.events.length - 1].round).toBeLessThan(19);
+});
+
 test('pawn threat previews follow the configured direction', () => {
   const enemyPawn = { id: 'e0', type: 'P', side: 'enemy', alive: true, col: 2, row: 1 } as const;
   const playerPawn = { id: 'p0', type: 'P', side: 'player', alive: true, col: 5, row: 1 } as const;
