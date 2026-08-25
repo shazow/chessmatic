@@ -41,9 +41,18 @@ test('reviews moves on the scoresheet and replays the previous run', async ({ pa
   await expect(firstMove).toHaveClass(/sel/);
 
   await page.getByRole('button', { name: 'Replay', exact: true }).click();
+  await page.getByRole('button', { name: 'Pause' }).click();
+  await page.getByRole('button', { name: 'Step one move' }).click();
+  await page.getByRole('button', { name: 'Play', exact: true }).click();
   await page.getByRole('button', { name: 'Finish ≫' }).click();
   await expect(page.getByRole('button', { name: 'Replay', exact: true })).toBeVisible();
   await expect(page.getByRole('dialog')).toBeHidden();
+
+  await page.getByRole('button', { name: 'Edit force' }).click();
+  await expect(page.getByRole('button', { name: 'Start battle' })).toBeVisible();
+  await firstMove.click();
+  await expect(firstMove).toHaveClass(/sel/);
+  await expect(page.getByRole('button', { name: 'Replay', exact: true })).toBeVisible();
 });
 
 test('loads a shared replay link with the solution pre-placed', async ({ page }) => {

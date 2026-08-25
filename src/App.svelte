@@ -102,6 +102,8 @@
   let battleLog = $state<LogEntry[]>([]);
   let reviewStep = $state<number | null>(null);
   let finishRequested = $state(false);
+  let paused = $state(false);
+  let stepResolve: (() => void) | null = null;
   let pinnedIds = $state<string[]>([]);
   let activeId = $state<string | null>(null);
   let threatFor = $state<string | null>(null);
@@ -402,6 +404,35 @@
 
   const sleep = (milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
 
+  async function waitTurn(delay: number): Promise<void> {
+    if (finishRequested) return;
+    if (paused) {
+      await new Promise<void>((resolve) => { stepResolve = resolve; });
+      stepResolve = null;
+      return;
+    }
+    await sleep(delay);
+  }
+
+  function pausePlayback(): void {
+    paused = true;
+  }
+
+  function stepPlayback(): void {
+    if (paused) stepResolve?.();
+  }
+
+  function resumePlayback(): void {
+    paused = false;
+    stepResolve?.();
+  }
+
+  function finishPlayback(): void {
+    finishRequested = true;
+    paused = false;
+    stepResolve?.();
+  }
+
   async function startBattle(): Promise<void> {
     if (!placed.length || playing) return;
     const simulation = engine.simulate(
@@ -423,6 +454,8 @@
     livePieces = simulation.initialPieces.map((piece) => ({ ...piece }));
     playing = true;
     finishRequested = false;
+    paused = false;
+    stepResolve = null;
     mode = 'battle';
     threatFor = null;
     pinnedIds = [];
@@ -450,8 +483,8 @@
             side: step.side,
             text: `⊘ ${GLYPH[step.ptype]} ${squareName(step.at.c, step.at.r)} is pinned — no legal move`,
           });
-          if (!finishRequested && !reducedMotion) await sleep(560);
-        } else if (!finishRequested && !reducedMotion) await sleep(160);
+          if (!reducedMotion) await waitTurn(560);
+        } else if (!reducedMotion) await waitTurn(160);
         continue;
       }
       pinnedIds = pinnedIds.filter((id) => id !== step.ev.pieceId);
@@ -472,17 +505,21 @@
       lastMove = event;
       await tick();
       document.querySelector('.sheet')?.scrollTo({ top: document.querySelector('.sheet')?.scrollHeight });
-      if (!finishRequested && !reducedMotion) await sleep(event.captured ? 620 : 430);
+      if (!reducedMotion) await waitTurn(event.captured ? 620 : 430);
     }
     if (simulation.timeout) battleLog.push({ kind: 'note', html: '<b>Round 20 — time. The house keeps the board.</b>' });
     if (simulation.stalemate) battleLog.push({ kind: 'note', html: '<b>Dead position — no piece on either side will move again. The house keeps the board.</b>' });
     playing = false;
+    paused = false;
     if (options.showResult) finish(simulation);
     else mode = 'done';
   }
 
   function jumpToStep(step: number): void {
-    if (!lastRun || playing || mode !== 'done') return;
+    if (!lastRun || playing || (mode !== 'done' && mode !== 'place')) return;
+    mode = 'done';
+    selectedType = null;
+    disarmSpoiler();
     reviewStep = step;
     const pieces = lastRun.initialPieces.map((piece) => ({ ...piece }));
     const pins: string[] = [];
@@ -856,7 +893,10 @@
         <button class="btn ghost" type="button" onclick={clearPlacement}>Clear</button>
       {/if}
       {#if playing}
-        <button class="btn ghost" type="button" onclick={() => { finishRequested = true; }}>Finish ≫</button>
+        <button class="btn ghost icon" type="button" disabled={paused} aria-label="Pause" title="Pause" onclick={pausePlayback}>⏸</button>
+        <button class="btn ghost icon" type="button" disabled={!paused} aria-label="Step one move" title="Step one move" onclick={stepPlayback}>⏭</button>
+        <button class="btn ghost icon" type="button" disabled={!paused} aria-label="Play" title="Play" onclick={resumePlayback}>⏵</button>
+        <button class="btn ghost" type="button" onclick={finishPlayback}>Finish ≫</button>
       {/if}
       {#if mode === 'done' && !playing}
         <button class="btn ghost" type="button" onclick={retry}>Edit force</button>
@@ -896,7 +936,7 @@
               class="mv {entry.side}"
               class:sel={reviewStep === entry.step}
               type="button"
-              disabled={mode !== 'done' || playing}
+              disabled={playing || (mode !== 'done' && mode !== 'place')}
               onclick={() => jumpToStep(entry.step)}
             >{entry.number}. {entry.text}</button><br>
           {/if}

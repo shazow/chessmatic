@@ -465,6 +465,12 @@ h1 .knight {
   color: #231d08;
 }
 
+.btn.icon {
+  padding: 10px 12px;
+  font-size: 15px;
+  line-height: 1;
+}
+
 .btn.ghost.dark {
   color: var(--ink);
   border-color: #9d9279;
