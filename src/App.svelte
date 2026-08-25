@@ -781,10 +781,6 @@
     }
   }
 
-  function retry(): void {
-    rewind();
-  }
-
   function closeResult(): void {
     resultView = null;
   }
@@ -821,7 +817,6 @@
   function nextPuzzle(): void {
     resultView = null;
     selectPuzzle(Math.min(currentIndex + 1, officialPuzzleCount - 1));
-    mode = 'place';
   }
 
   function resetRoutedPuzzleState(): void {
@@ -953,7 +948,7 @@
   <PieceTray
     costs={data.pieceCosts}
     selected={selectedType}
-    disabled={playing}
+    disabled={inRun}
     enemy={editing}
     onselect={onSelectType}
     ondrag={(event, type) => startDrag(event, { kind: 'tray', type })}
@@ -1115,7 +1110,7 @@
         <input id="shareOut" class="share-out" readonly value={resultShareFallback} aria-label="Shareable result text">
       {/if}
       <div class="row">
-        <button class="btn ghost dark" type="button" onclick={retry}>Retry</button>
+        <button class="btn ghost dark" type="button" onclick={rewind}>Retry</button>
         <button class="btn ghost dark" type="button" onclick={closeResult}>Close</button>
         {#if resultView.canShare}
           <button class="btn ghost dark" type="button" onclick={() => void shareResult()}>Copy result</button>

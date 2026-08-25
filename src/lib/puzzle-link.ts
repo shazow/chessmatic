@@ -16,10 +16,6 @@ export function validatePuzzle(puzzle: unknown, data: PuzzleData): SharedPuzzle 
   if (!Number.isInteger(targetCost) || targetCost < 1 || targetCost > 999) {
     throw new Error('Target must be a whole number from 1–999.');
   }
-  if (!Array.isArray(candidate.enemy) || candidate.enemy.length < 1 || candidate.enemy.length > 24) {
-    throw new Error('A puzzle must contain 1–24 enemy pieces.');
-  }
-
   const enemy = validatePieces(candidate.enemy, data, 'enemy');
   const solution = candidate.solution === undefined || (Array.isArray(candidate.solution) && candidate.solution.length === 0)
     ? undefined
