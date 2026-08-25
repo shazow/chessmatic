@@ -97,17 +97,13 @@
   let mode = $state<GameMode>('place');
   let playing = $state(false);
   let solved = $state<Record<number, boolean>>({});
-  let livePieces = $state<BattlePiece[]>([]);
   let lastRun = $state<Simulation | null>(null);
-  let battleLog = $state<LogEntry[]>([]);
-  let reviewStep = $state<number | null>(null);
-  let finishRequested = $state(false);
-  let paused = $state(false);
-  let stepResolve: (() => void) | null = null;
-  let pinnedIds = $state<string[]>([]);
-  let activeId = $state<string | null>(null);
+  let cursor = $state(0);
+  let maxSeen = $state(0);
+  let resultShown = false;
+  let playTimer: number | null = null;
+  let reduceMotionRun = false;
   let threatFor = $state<string | null>(null);
-  let lastMove = $state<BattleMove | null>(null);
   let spoilerArmed = $state(false);
   let shareUrl = $state('');
   let messageHtml = $state('');
@@ -127,6 +123,10 @@
     ? data.sides.enemy.deploy
     : data.sides.player.deploy) as [number, number]);
   let spend = $derived(placed.reduce((total, piece) => total + data.pieceCosts[piece.type], 0));
+  let inRun = $derived(mode === 'battle' || mode === 'done');
+  let atEnd = $derived(lastRun !== null && cursor >= lastRun.events.length);
+  let runView = $derived.by(() => (lastRun ? boardStateAt(lastRun, cursor) : null));
+  let battleLog = $derived.by(buildBattleLog);
   let visiblePieces = $derived.by(piecesForRender);
   let threats = $derived.by(() => {
     if (!threatFor) return new Set<string>();
@@ -149,7 +149,7 @@
         id: `e${index}`,
       }));
     }
-    if (mode === 'battle' || mode === 'done') return livePieces;
+    if (mode === 'battle' || mode === 'done') return runView?.pieces ?? [];
     const player: BattlePiece[] = placed.map((piece, index) => ({
       ...piece,
       side: 'player',
@@ -169,6 +169,80 @@
 
   function placementPieces(): SetupPiece[] {
     return editing ? editorPieces : placed;
+  }
+
+  interface RunView {
+    pieces: BattlePiece[];
+    pins: string[];
+    lastMove: BattleMove | null;
+    activeId: string | null;
+    moveStep: number;
+  }
+
+  function boardStateAt(run: Simulation, upto: number): RunView {
+    const bound = Math.min(upto, run.events.length);
+    const pieces = run.initialPieces.map((piece) => ({ ...piece }));
+    const pins: string[] = [];
+    let lastMove: BattleMove | null = null;
+    let moveStep = -1;
+    run.events.slice(0, bound).forEach((step, index) => {
+      if (!step.ev) {
+        if (!pins.includes(step.pid)) pins.push(step.pid);
+        return;
+      }
+      const event = step.ev;
+      const pinIndex = pins.indexOf(event.pieceId);
+      if (pinIndex !== -1) pins.splice(pinIndex, 1);
+      if (event.captured) {
+        const captured = pieces.find((piece) => piece.id === event.captured?.id);
+        if (captured) captured.alive = false;
+      }
+      const mover = pieces.find((piece) => piece.id === event.pieceId);
+      if (mover) {
+        mover.col = event.to.c;
+        mover.row = event.to.r;
+      }
+      lastMove = event;
+      moveStep = index;
+    });
+    const last = run.events[bound - 1];
+    const activeId = last ? (last.ev ? last.ev.pieceId : last.pid) : null;
+    return { pieces, pins, lastMove, activeId, moveStep };
+  }
+
+  function buildBattleLog(): LogEntry[] {
+    if (!lastRun) return [];
+    const entries: LogEntry[] = [{ kind: 'note', html: '<b>Battle begins.</b>' }];
+    const visible = Math.min(maxSeen, lastRun.events.length);
+    let lastRound = -1;
+    let moveNumber = 1;
+    const loggedPins = new Set<string>();
+    lastRun.events.slice(0, visible).forEach((step, index) => {
+      if (step.round !== lastRound) {
+        lastRound = step.round;
+        entries.push({ kind: 'round', round: step.round });
+      }
+      if (!step.ev) {
+        if (!loggedPins.has(step.pid)) {
+          loggedPins.add(step.pid);
+          entries.push({
+            kind: 'pin',
+            side: step.side,
+            text: `⊘ ${GLYPH[step.ptype]} ${squareName(step.at.c, step.at.r)} is pinned — no legal move`,
+          });
+        }
+        return;
+      }
+      const event = step.ev;
+      const notation = `${GLYPH[event.type]} ${squareName(event.from.c, event.from.r)}${event.captured ? '×' : '–'}${squareName(event.to.c, event.to.r)}${event.captured ? ` takes ${PIECE_NAME[event.captured.type]}` : ''}`;
+      entries.push({ kind: 'move', step: index, number: moveNumber, side: event.side, text: notation });
+      moveNumber += 1;
+    });
+    if (visible >= lastRun.events.length) {
+      if (lastRun.timeout) entries.push({ kind: 'note', html: '<b>Round 20 — time. The house keeps the board.</b>' });
+      if (lastRun.stalemate) entries.push({ kind: 'note', html: '<b>Dead position — no piece on either side will move again. The house keeps the board.</b>' });
+    }
+    return entries;
   }
 
   function deployLabel(): string {
@@ -256,10 +330,26 @@
     return url;
   }
 
-  function clearBattleLog(): void {
+  function stopTimer(): void {
+    if (playTimer !== null) {
+      clearTimeout(playTimer);
+      playTimer = null;
+    }
+  }
+
+  function updateMode(): void {
+    if (mode === 'editor') return;
+    mode = playing ? 'battle' : (cursor > 0 ? 'done' : 'place');
+  }
+
+  function invalidateRun(): void {
+    playing = false;
+    stopTimer();
     lastRun = null;
-    battleLog = [];
-    reviewStep = null;
+    cursor = 0;
+    maxSeen = 0;
+    resultShown = false;
+    updateMode();
   }
 
   function selectPuzzle(index: number): void {
@@ -269,7 +359,7 @@
     selectedType = null;
     threatFor = null;
     disarmSpoiler();
-    clearBattleLog();
+    invalidateRun();
     const puzzle = puzzles[index];
     if (puzzle.kind === 'shared') showPuzzleLink(puzzle.shareCode);
     else {
@@ -291,6 +381,7 @@
         || (piece.side === 'enemy' && editing);
       if (own && !selectedType) {
         placementPieces().splice(Number(piece.id.slice(1)), 1);
+        if (!editing) invalidateRun();
         threatFor = null;
         resetMessageWhenEmpty();
         return;
@@ -308,6 +399,7 @@
       return;
     }
     placementPieces().push({ type: selectedType, col, row });
+    if (!editing) invalidateRun();
   }
 
   function validDropCells(source: DragSource): Set<string> {
@@ -383,6 +475,7 @@
               target.row = row;
             }
           }
+          if (!editing) invalidateRun();
         } else if (col < deployment[0] || col > deployment[1]) {
           messageHtml = `Deploy on files ${deployLabel()} only — piece snapped back.`;
         } else {
@@ -390,6 +483,7 @@
         }
       } else if (source.kind === 'board') {
         placementPieces().splice(source.index, 1);
+        if (!editing) invalidateRun();
         messageHtml = 'Piece returned to the box.';
       }
       threatFor = null;
@@ -402,152 +496,124 @@
     window.addEventListener('pointercancel', up);
   }
 
-  const sleep = (milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
-
-  async function waitTurn(delay: number): Promise<void> {
-    if (finishRequested) return;
-    if (paused) {
-      await new Promise<void>((resolve) => { stepResolve = resolve; });
-      stepResolve = null;
-      return;
-    }
-    await sleep(delay);
-  }
-
-  function pausePlayback(): void {
-    paused = true;
-  }
-
-  function stepPlayback(): void {
-    if (paused) stepResolve?.();
-  }
-
-  function resumePlayback(): void {
-    paused = false;
-    stepResolve?.();
-  }
-
-  function finishPlayback(): void {
-    finishRequested = true;
-    paused = false;
-    stepResolve?.();
-  }
-
-  async function startBattle(): Promise<void> {
-    if (!placed.length || playing) return;
-    const simulation = engine.simulate(
+  function ensureRun(): boolean {
+    if (lastRun) return true;
+    if (!placed.length) return false;
+    lastRun = engine.simulate(
       placed.map((piece) => ({ ...piece })),
       currentPuzzle.enemy.map((piece) => ({ ...piece })),
     );
-    await playSimulation(simulation, { showResult: true });
-  }
-
-  function replayBattle(): void {
-    if (!lastRun || playing) return;
-    resultView = null;
-    void playSimulation(lastRun, { showResult: false });
-  }
-
-  async function playSimulation(simulation: Simulation, options: { showResult: boolean }): Promise<void> {
-    lastRun = simulation;
-    reviewStep = null;
-    livePieces = simulation.initialPieces.map((piece) => ({ ...piece }));
-    playing = true;
-    finishRequested = false;
-    paused = false;
-    stepResolve = null;
-    mode = 'battle';
-    threatFor = null;
-    pinnedIds = [];
-    activeId = null;
-    lastMove = null;
+    cursor = 0;
+    maxSeen = 0;
+    resultShown = false;
     messageHtml = '';
-    battleLog = [{ kind: 'note', html: '<b>Battle begins.</b>' }];
-    const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    let moveNumber = 1;
-    let lastRound = -1;
-    const loggedPins = new Set<string>();
-
-    for (const [index, step] of simulation.events.entries()) {
-      if (step.round !== lastRound) {
-        lastRound = step.round;
-        battleLog.push({ kind: 'round', round: step.round });
-      }
-      if (!step.ev) {
-        activeId = step.pid;
-        if (!pinnedIds.includes(step.pid)) pinnedIds.push(step.pid);
-        if (!loggedPins.has(step.pid)) {
-          loggedPins.add(step.pid);
-          battleLog.push({
-            kind: 'pin',
-            side: step.side,
-            text: `⊘ ${GLYPH[step.ptype]} ${squareName(step.at.c, step.at.r)} is pinned — no legal move`,
-          });
-          if (!reducedMotion) await waitTurn(560);
-        } else if (!reducedMotion) await waitTurn(160);
-        continue;
-      }
-      pinnedIds = pinnedIds.filter((id) => id !== step.ev.pieceId);
-      activeId = step.ev.pieceId;
-      const event = step.ev;
-      const livePiece = livePieces.find((piece) => piece.id === event.pieceId);
-      if (event.captured) {
-        const captured = livePieces.find((piece) => piece.id === event.captured?.id);
-        if (captured) captured.alive = false;
-      }
-      if (livePiece) {
-        livePiece.col = event.to.c;
-        livePiece.row = event.to.r;
-      }
-      const notation = `${GLYPH[event.type]} ${squareName(event.from.c, event.from.r)}${event.captured ? '×' : '–'}${squareName(event.to.c, event.to.r)}${event.captured ? ` takes ${PIECE_NAME[event.captured.type]}` : ''}`;
-      battleLog.push({ kind: 'move', step: index, number: moveNumber, side: event.side, text: notation });
-      moveNumber += 1;
-      lastMove = event;
-      await tick();
-      document.querySelector('.sheet')?.scrollTo({ top: document.querySelector('.sheet')?.scrollHeight });
-      if (!reducedMotion) await waitTurn(event.captured ? 620 : 430);
-    }
-    if (simulation.timeout) battleLog.push({ kind: 'note', html: '<b>Round 20 — time. The house keeps the board.</b>' });
-    if (simulation.stalemate) battleLog.push({ kind: 'note', html: '<b>Dead position — no piece on either side will move again. The house keeps the board.</b>' });
-    playing = false;
-    paused = false;
-    if (options.showResult) finish(simulation);
-    else mode = 'done';
+    disarmSpoiler();
+    return true;
   }
 
-  function jumpToStep(step: number): void {
-    if (!lastRun || playing || (mode !== 'done' && mode !== 'place')) return;
-    mode = 'done';
-    selectedType = null;
-    disarmSpoiler();
-    reviewStep = step;
-    const pieces = lastRun.initialPieces.map((piece) => ({ ...piece }));
-    const pins: string[] = [];
-    let move: BattleMove | null = null;
-    for (const current of lastRun.events.slice(0, step + 1)) {
-      if (!current.ev) {
-        if (!pins.includes(current.pid)) pins.push(current.pid);
-        continue;
-      }
-      const event = current.ev;
-      const pinIndex = pins.indexOf(event.pieceId);
-      if (pinIndex !== -1) pins.splice(pinIndex, 1);
-      if (event.captured) {
-        const captured = pieces.find((piece) => piece.id === event.captured?.id);
-        if (captured) captured.alive = false;
-      }
-      const mover = pieces.find((piece) => piece.id === event.pieceId);
-      if (mover) {
-        mover.col = event.to.c;
-        mover.row = event.to.r;
-      }
-      move = event;
+  function scrollSheet(): void {
+    void tick().then(() => {
+      const sheet = document.querySelector('.sheet');
+      sheet?.scrollTo({ top: sheet.scrollHeight });
+    });
+  }
+
+  function advanceCursor(): void {
+    if (!lastRun || cursor >= lastRun.events.length) return;
+    cursor += 1;
+    if (cursor > maxSeen) {
+      maxSeen = cursor;
+      scrollSheet();
     }
-    livePieces = pieces;
-    pinnedIds = pins;
-    lastMove = move;
-    activeId = move?.pieceId ?? null;
+  }
+
+  function delayAfter(run: Simulation, index: number): number {
+    const step = run.events[index];
+    if (!step.ev) {
+      const firstPin = run.events.findIndex((other) => !other.ev && other.pid === step.pid) === index;
+      return firstPin ? 560 : 160;
+    }
+    return step.ev.captured ? 620 : 430;
+  }
+
+  function stopPlaying(): void {
+    playing = false;
+    stopTimer();
+    updateMode();
+    if (lastRun && cursor >= lastRun.events.length && !resultShown) {
+      resultShown = true;
+      finish(lastRun);
+    }
+  }
+
+  function tickPlayback(): void {
+    playTimer = null;
+    if (!playing || !lastRun) return;
+    advanceCursor();
+    if (cursor >= lastRun.events.length) {
+      stopPlaying();
+      return;
+    }
+    playTimer = window.setTimeout(tickPlayback, reduceMotionRun ? 0 : delayAfter(lastRun, cursor - 1));
+  }
+
+  function togglePlay(): void {
+    if (editing) return;
+    if (playing) {
+      stopPlaying();
+      return;
+    }
+    if (!ensureRun() || !lastRun) return;
+    if (cursor >= lastRun.events.length) cursor = 0;
+    reduceMotionRun = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    playing = true;
     threatFor = null;
+    resultView = null;
+    updateMode();
+    tickPlayback();
+  }
+
+  function stepForward(): void {
+    if (editing) return;
+    playing = false;
+    stopTimer();
+    if (!ensureRun() || !lastRun || cursor >= lastRun.events.length) {
+      updateMode();
+      return;
+    }
+    advanceCursor();
+    threatFor = null;
+    stopPlaying();
+  }
+
+  function stepBack(): void {
+    if (editing || !lastRun || cursor === 0) return;
+    playing = false;
+    stopTimer();
+    cursor -= 1;
+    threatFor = null;
+    updateMode();
+  }
+
+  function rewind(): void {
+    if (editing) return;
+    playing = false;
+    stopTimer();
+    cursor = 0;
+    threatFor = null;
+    resultView = null;
+    updateMode();
+  }
+
+  function jumpToMove(step: number): void {
+    if (editing || !lastRun) return;
+    playing = false;
+    stopTimer();
+    cursor = Math.min(step + 1, lastRun.events.length);
+    selectedType = null;
+    threatFor = null;
+    disarmSpoiler();
+    updateMode();
   }
 
   function finish(simulation: Simulation): void {
@@ -593,9 +659,8 @@
     else placed = [];
     selectedType = null;
     threatFor = null;
-    pinnedIds = [];
     disarmSpoiler();
-    clearBattleLog();
+    invalidateRun();
     messageHtml = '';
   }
 
@@ -612,9 +677,10 @@
     }
     disarmSpoiler();
     placed = currentPuzzle.solution.map((piece) => ({ ...piece }));
+    invalidateRun();
     selectedType = null;
     threatFor = null;
-    messageHtml = '<b>Optimal setup placed.</b> Press Start battle to watch why it works — then Clear and see if you can rediscover it cold.';
+    messageHtml = '<b>Optimal setup placed.</b> Press Play to watch why it works — then Clear and see if you can rediscover it cold.';
   }
 
   function startEditor(): void {
@@ -626,7 +692,7 @@
     selectedType = null;
     threatFor = null;
     disarmSpoiler();
-    clearBattleLog();
+    invalidateRun();
     messageHtml = '';
   }
 
@@ -708,15 +774,10 @@
   }
 
   function retry(): void {
-    resultView = null;
-    mode = 'place';
-    pinnedIds = [];
-    activeId = null;
-    lastMove = null;
-    reviewStep = null;
+    rewind();
   }
 
-  function reviewBattle(): void {
+  function closeResult(): void {
     resultView = null;
   }
 
@@ -749,16 +810,11 @@
   function resetRoutedPuzzleState(): void {
     resultView = null;
     mode = 'place';
-    playing = false;
-    finishRequested = false;
+    invalidateRun();
     placed = [];
     selectedType = null;
     threatFor = null;
-    pinnedIds = [];
-    activeId = null;
-    lastMove = null;
     disarmSpoiler();
-    clearBattleLog();
     shareUrl = '';
     messageHtml = '';
   }
@@ -776,7 +832,7 @@
         shareUrl = location.href;
         if (shared.solution?.length) {
           placed = shared.solution.map((piece) => ({ ...piece }));
-          messageHtml = 'This link includes a shared solution, already set up. Press Start battle to watch it play out.';
+          messageHtml = 'This link includes a shared solution, already set up. Press Play to watch it play out.';
         }
       } else if (route.kind === 'daily') {
         const date = dailyPuzzleSeed();
@@ -802,7 +858,10 @@
   onMount(() => {
     routeHash();
     window.addEventListener('hashchange', routeHash);
-    return () => window.removeEventListener('hashchange', routeHash);
+    return () => {
+      window.removeEventListener('hashchange', routeHash);
+      stopTimer();
+    };
   });
 </script>
 
@@ -865,9 +924,9 @@
     {selectedType}
     {threats}
     {threatFor}
-    {pinnedIds}
-    {activeId}
-    {lastMove}
+    pinnedIds={inRun && runView ? runView.pins : []}
+    activeId={inRun && runView ? runView.activeId : null}
+    lastMove={inRun && runView ? runView.lastMove : null}
     {drag}
     oncell={onCell}
     ondrag={startDrag}
@@ -892,22 +951,44 @@
       {#if (mode === 'place' || editing) && placementPieces().length > 0}
         <button class="btn ghost" type="button" onclick={clearPlacement}>Clear</button>
       {/if}
-      {#if playing}
-        <button class="btn ghost icon" type="button" disabled={paused} aria-label="Pause" title="Pause" onclick={pausePlayback}>⏸</button>
-        <button class="btn ghost icon" type="button" disabled={!paused} aria-label="Step one move" title="Step one move" onclick={stepPlayback}>⏭</button>
-        <button class="btn ghost icon" type="button" disabled={!paused} aria-label="Play" title="Play" onclick={resumePlayback}>⏵</button>
-        <button class="btn ghost" type="button" onclick={finishPlayback}>Finish ≫</button>
-      {/if}
-      {#if mode === 'done' && !playing}
-        <button class="btn ghost" type="button" onclick={retry}>Edit force</button>
-        <button class="btn primary" type="button" onclick={replayBattle}>Replay</button>
-      {:else}
+      {#if editing}
         <button
           class="btn primary"
           type="button"
-          disabled={editing ? editorPieces.length === 0 : placed.length === 0 || playing}
-          onclick={() => editing ? void saveEditorPuzzle() : void startBattle()}
-        >{editing ? 'Save' : 'Start battle'}</button>
+          disabled={editorPieces.length === 0}
+          onclick={() => void saveEditorPuzzle()}
+        >Save</button>
+      {:else}
+        <button
+          class="btn ghost icon"
+          type="button"
+          disabled={!lastRun || (cursor === 0 && !playing)}
+          aria-label="Rewind to setup"
+          title="Rewind to setup"
+          onclick={rewind}
+        >⏮</button>
+        <button
+          class="btn ghost icon"
+          type="button"
+          disabled={!lastRun || cursor === 0}
+          aria-label="Step back"
+          title="Step back"
+          onclick={stepBack}
+        >⏴</button>
+        <button
+          class="btn primary"
+          type="button"
+          disabled={!placed.length && !lastRun}
+          onclick={togglePlay}
+        >{playing ? 'Pause' : 'Play'}</button>
+        <button
+          class="btn ghost icon"
+          type="button"
+          disabled={(!placed.length && !lastRun) || atEnd}
+          aria-label="Step forward"
+          title="Step forward"
+          onclick={stepForward}
+        >⏵</button>
       {/if}
     </div>
   </div>
@@ -934,10 +1015,10 @@
           {:else}
             <button
               class="mv {entry.side}"
-              class:sel={reviewStep === entry.step}
+              class:sel={runView?.moveStep === entry.step}
               type="button"
-              disabled={playing || (mode !== 'done' && mode !== 'place')}
-              onclick={() => jumpToStep(entry.step)}
+              disabled={editing}
+              onclick={() => jumpToMove(entry.step)}
             >{entry.number}. {entry.text}</button><br>
           {/if}
         {/each}
@@ -1002,7 +1083,7 @@
       {/if}
       <div class="row">
         <button class="btn ghost dark" type="button" onclick={retry}>Retry</button>
-        <button class="btn ghost dark" type="button" onclick={reviewBattle}>Review moves</button>
+        <button class="btn ghost dark" type="button" onclick={closeResult}>Close</button>
         {#if resultView.canShare}
           <button class="btn ghost dark" type="button" onclick={() => void shareResult()}>Copy result</button>
         {/if}
