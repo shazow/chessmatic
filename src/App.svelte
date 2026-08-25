@@ -770,14 +770,10 @@
   </section>
 
   <details>
-    <summary>How the battle plays out</summary>
-    <p>Turn order is deterministic: each side lines up front-to-back (closest to the enemy first), with the lower rank breaking same-file ties. The house is White and takes turn 1, then sides alternate: yours takes turn 2, the house takes turn 3, and so on. That schedule freezes at the bell — moving and capturing can’t reshuffle it.</p>
-    <p>Every survivor gets one turn per round; blocked pieces miss theirs. On a turn:</p>
-    <p><b>1. Strike.</b> Take the highest-value allowed capture, using full chess range. Rooks, bishops, and queens reach as far as clear lines allow.</p>
-    <p><b>2. Creep.</b> No strike? Take a safe move toward the nearest enemy. Sliders creep one square; knights leap normally.</p>
-    <p><b>3. Mind the price tag.</b> A square is unsafe if an equal-or-cheaper enemy attacks it, or a pricier enemy attacks it with no ally defending it. A capture is still allowed through danger when its target costs at least as much as the attacker.</p>
-    <p>No safe advance? The piece makes its least-bad legal move — even into trouble. A piece with no legal move is pinned (⊘) until the position changes.</p>
-    <p>Eliminate every enemy within 20 rounds. A full round with no moves is an instant loss; so is reaching the limit with enemies standing. Your score is points spent. Beat par to climb the club board; match the optimal score to prove there is no cheaper solution.</p>
+    <summary>How to play</summary>
+    <p>Chessmatic does not use a regular chess engine. Each piece gets a turn as an automaton, following a deterministic ruleset:</p>
+    <p>Turns are ordered front-to-back, then by rank. Each piece must make a valid move, if available: Capture if safe or equal+ value, else advance toward the enemy preferring a safe position.</p>
+    <p>The rules are tuned to be predictable and to allow for interesting puzzle scenarios.</p>
   </details>
 
   {#if editing}

@@ -561,7 +561,14 @@ details summary {
   color: var(--paper);
 }
 
-details p { margin-top: 8px; }
+details p { margin: 8px 0 0; }
+
+details ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+
+details li + li { margin-top: 6px; }
 details b { color: var(--brass); }
 
 .overlay {
