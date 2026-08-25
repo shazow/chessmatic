@@ -62,6 +62,11 @@ test('steps through the scoresheet and scrubs the previous run', async ({ page }
   await expect(firstMove).not.toHaveClass(/sel/);
   await firstMove.click();
   await expect(firstMove).toHaveClass(/sel/);
+
+  await page.getByRole('button', { name: 'Spoiler' }).click();
+  await page.getByRole('button', { name: 'Reveal optimal?' }).click();
+  await expect(page.locator('.sheet')).toContainText('Optimal setup placed');
+  await expect(page.getByRole('button', { name: 'Clear' })).toBeVisible();
 });
 
 test('marks a loss on the board and scoresheet without a dialog', async ({ page }) => {

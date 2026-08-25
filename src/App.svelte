@@ -698,7 +698,7 @@
   }
 
   function revealSpoiler(): void {
-    if (playing || mode !== 'place') return;
+    if (playing || editing) return;
     if (!spoilerArmed) {
       spoilerArmed = true;
       messageHtml = 'This places the optimal setup on the board. Tap again to spoil — or Clear to keep hunting.';
