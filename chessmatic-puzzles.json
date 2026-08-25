@@ -29,6 +29,26 @@
   },
   "puzzles": [
     {
+      "id": "a-challenger-appears",
+      "name": "A challenger appears",
+      "desc": "Each piece is a deterministic player following simple rules",
+      "enemy": [
+        {
+          "type": "P",
+          "col": 2,
+          "row": 1
+        }
+      ],
+      "par": 2,
+      "solution": [
+        {
+          "type": "P",
+          "col": 4,
+          "row": 0
+        }
+      ]
+    },
+    {
       "id": "lone-rook",
       "name": "№1 · Lone Rook",
       "desc": "Set your starting position and watch it play out.",
