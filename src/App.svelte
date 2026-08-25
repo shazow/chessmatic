@@ -994,22 +994,32 @@
           onclick={() => void saveEditorPuzzle()}
         >Save</button>
       {:else}
-        <button
-          class="btn ghost icon"
-          type="button"
-          disabled={!lastRun || (cursor === 0 && !playing)}
-          aria-label="Rewind to setup"
-          title="Rewind to setup"
-          onclick={rewind}
-        >⏮</button>
-        <button
-          class="btn ghost icon"
-          type="button"
-          disabled={!lastRun || cursor === 0}
-          aria-label="Step back"
-          title="Step back"
-          onclick={stepBack}
-        >⏴</button>
+        <div class="btn-group" role="group" aria-label="Playback controls">
+          <button
+            class="btn ghost icon"
+            type="button"
+            disabled={!lastRun || (cursor === 0 && !playing)}
+            aria-label="Rewind to setup"
+            title="Rewind to setup"
+            onclick={rewind}
+          >⏮</button>
+          <button
+            class="btn ghost icon"
+            type="button"
+            disabled={!lastRun || cursor === 0}
+            aria-label="Step back"
+            title="Step back"
+            onclick={stepBack}
+          >⏴</button>
+          <button
+            class="btn ghost icon"
+            type="button"
+            disabled={(!placed.length && !lastRun) || atEnd}
+            aria-label="Step forward"
+            title="Step forward"
+            onclick={stepForward}
+          >⏵</button>
+        </div>
         {#if outcome === 'loss'}
           <button class="btn primary" type="button" onclick={rewind}>Reset</button>
         {:else}
@@ -1020,14 +1030,6 @@
             onclick={togglePlay}
           >{playing ? 'Pause' : 'Play'}</button>
         {/if}
-        <button
-          class="btn ghost icon"
-          type="button"
-          disabled={(!placed.length && !lastRun) || atEnd}
-          aria-label="Step forward"
-          title="Step forward"
-          onclick={stepForward}
-        >⏵</button>
         {#if outcome === 'win' && canNext}
           <button class="btn primary" type="button" onclick={nextPuzzle}>🏆 Next Puzzle</button>
         {/if}

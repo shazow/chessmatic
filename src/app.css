@@ -550,6 +550,29 @@ h1 .brand-name {
   line-height: 1;
 }
 
+.btn-group {
+  display: flex;
+  border: 1px solid #557a66;
+  border-radius: 8px;
+}
+
+.btn-group .btn.ghost {
+  border: 0;
+  border-radius: 0;
+}
+
+.btn-group .btn.ghost:first-child {
+  border-radius: 7px 0 0 7px;
+}
+
+.btn-group .btn.ghost:last-child {
+  border-radius: 0 7px 7px 0;
+}
+
+.btn-group .btn.ghost + .btn.ghost {
+  border-left: 1px solid rgb(85 122 102 / 45%);
+}
+
 .btn:disabled {
   opacity: .45;
   cursor: default;
