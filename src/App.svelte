@@ -892,7 +892,8 @@
   <header>
     <h1>
       <a class="brand-link" href="./" aria-label="Reset Chessmatic">
-        <img class="logo" src={logoUrl} alt="">Chessmatic
+        <img class="logo" src={logoUrl} alt="">
+        <span class="brand-name">Chessmatic</span>
       </a>
     </h1>
     <div class="tagline">Chess Puzzle Autobattler</div>
