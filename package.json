@@ -11,6 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "puzzles:add": "tsx scripts/add-puzzle.ts",
     "puzzles": "tsx scripts/solve-puzzles.ts",
     "puzzles:check": "tsx scripts/solve-puzzles.ts --check",
     "validate": "npm run check && npm run test && npm run puzzles:check && npm run build && npm run test:e2e"

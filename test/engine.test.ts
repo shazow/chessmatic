@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import { describe, expect, test } from 'vitest';
 import { createEngine } from '../src/lib/engine';
+import { findWinningSolutionAtCost } from '../src/lib/solver';
 import type { PuzzleData, SetupPiece } from '../src/lib/types';
 
 const data = JSON.parse(fs.readFileSync('chessmatic-puzzles.json', 'utf8')) as PuzzleData;
@@ -70,11 +71,13 @@ test('a piece takes its least-bad move when no legal move advances', () => {
 });
 
 describe('stored puzzles', () => {
-  test('every solution wins at its displayed par', () => {
+  test('every optimal solution wins below or at par', () => {
     for (const puzzle of data.puzzles) {
       const spend = puzzle.solution.reduce((total, piece) => total + data.pieceCosts[piece.type], 0);
-      expect(spend, `${puzzle.id} solution cost`).toBe(puzzle.par);
+      expect(spend, `${puzzle.id} solution cost`).toBe(puzzle.optimalCost);
+      expect(puzzle.optimalCost, `${puzzle.id} optimal versus par`).toBeLessThanOrEqual(puzzle.par);
       expect(engine.simulate(puzzle.solution, puzzle.enemy).result, `${puzzle.id} solution result`).toBe('win');
+      expect(findWinningSolutionAtCost(data, puzzle.enemy, puzzle.par), `${puzzle.id} achievable par`).not.toBeNull();
     }
   });
 

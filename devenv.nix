@@ -18,6 +18,11 @@
   };
 
   scripts = {
+    run = {
+      description = "Start the Vite development server";
+      exec = "npm run dev";
+    };
+
     check = {
       description = "Run all project checks";
       exec = "npm run validate";

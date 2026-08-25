@@ -10,11 +10,11 @@ export function validatePuzzle(puzzle: unknown, data: PuzzleData): SharedPuzzle 
   const candidate = puzzle as Record<string, unknown>;
   const name = typeof candidate.name === 'string' ? candidate.name.trim() : '';
   const desc = typeof candidate.desc === 'string' ? candidate.desc.trim() : '';
-  const par = Number(candidate.par);
+  const targetCost = Number(candidate.targetCost);
   if (!name || name.length > 80) throw new Error('Puzzle title must be 1–80 characters.');
   if (desc.length > 240) throw new Error('Puzzle description must be at most 240 characters.');
-  if (!Number.isInteger(par) || par < 1 || par > 999) {
-    throw new Error('Par must be a whole number from 1–999.');
+  if (!Number.isInteger(targetCost) || targetCost < 1 || targetCost > 999) {
+    throw new Error('Target must be a whole number from 1–999.');
   }
   if (!Array.isArray(candidate.enemy) || candidate.enemy.length < 1 || candidate.enemy.length > 24) {
     throw new Error('A puzzle must contain 1–24 enemy pieces.');
@@ -41,7 +41,7 @@ export function validatePuzzle(puzzle: unknown, data: PuzzleData): SharedPuzzle 
     return { type: piece.type as PieceType, col, row };
   });
 
-  return { name, desc, par, enemy };
+  return { name, desc, targetCost, enemy };
 }
 
 function bytesToBase64(bytes: Uint8Array): string {
@@ -63,7 +63,7 @@ export function encodePuzzle(puzzle: unknown, data: PuzzleData): string {
     v: FORMAT_VERSION,
     n: clean.name,
     d: clean.desc,
-    p: clean.par,
+    p: clean.targetCost,
     e: clean.enemy.map((piece) => [piece.type, piece.col, piece.row]),
   };
   return bytesToBase64(new TextEncoder().encode(JSON.stringify(payload)))
@@ -90,7 +90,7 @@ export function decodePuzzle(encoded: string, data: PuzzleData): SharedPuzzle {
     return validatePuzzle({
       name: payload.n,
       desc: payload.d,
-      par: payload.p,
+      targetCost: payload.p,
       enemy: payload.e.map((piece) => {
         if (!Array.isArray(piece)) return piece;
         return { type: piece[0], col: piece[1], row: piece[2] };
@@ -98,18 +98,9 @@ export function decodePuzzle(encoded: string, data: PuzzleData): SharedPuzzle {
     }, data);
   } catch (error) {
     if (error instanceof Error
-        && /^(Unsupported puzzle format|Puzzle |Par |A puzzle|Every enemy|Two enemy)/.test(error.message)) {
+        && /^(Unsupported puzzle format|Puzzle |Target |A puzzle|Every enemy|Two enemy)/.test(error.message)) {
       throw error;
     }
     throw new Error('The shared puzzle code could not be read.');
   }
-}
-
-export function puzzleFromHash(hash: string): string | null {
-  return new URLSearchParams(hash.replace(/^#\??/, '')).get('puzzle');
-}
-
-export function buildPuzzleUrl(locationLike: Pick<Location, 'href'> | string, encoded: string): string {
-  const base = String(typeof locationLike === 'string' ? locationLike : locationLike.href).split('#')[0];
-  return `${base}#?puzzle=${encoded}`;
 }
