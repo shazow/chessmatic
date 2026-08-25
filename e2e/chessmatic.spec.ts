@@ -46,6 +46,8 @@ test('steps through the scoresheet and scrubs the previous run', async ({ page }
 
   await page.getByRole('button', { name: 'Rewind to setup' }).click();
   await expect(page.getByRole('button', { name: 'Clear' })).toBeVisible();
+  await page.getByRole('button', { name: 'Share', exact: true }).click();
+  await expect(page.getByLabel('Shareable puzzle link')).toHaveValue(/#puzzle=/);
   await expect(firstMove).not.toHaveClass(/sel/);
   await firstMove.click();
   await expect(firstMove).toHaveClass(/sel/);

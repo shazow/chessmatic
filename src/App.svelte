@@ -781,7 +781,8 @@
     resultView = null;
   }
 
-  async function shareReplay(): Promise<void> {
+  async function shareSolution(): Promise<void> {
+    if (!placed.length) return;
     try {
       const code = encodePuzzle({
         name: currentPuzzle.name,
@@ -791,11 +792,11 @@
         solution: placed.map((piece) => ({ ...piece })),
       }, data);
       const url = sharedPuzzleUrl(location, code);
-      if (!(await copyText(url))) {
-        resultShareFallback = url;
-        await tick();
-        document.querySelector<HTMLInputElement>('#shareOut')?.select();
-      }
+      shareUrl = url;
+      const copied = await copyText(url);
+      messageHtml = copied
+        ? '<b>Replay link copied.</b> It loads this puzzle with your setup placed, ready to play.'
+        : '<b>Replay link ready.</b> Use Copy link to share this puzzle with your setup placed.';
     } catch (error) {
       messageHtml = error instanceof Error ? error.message : 'The replay link could not be created.';
     }
@@ -951,6 +952,9 @@
       {#if (mode === 'place' || editing) && placementPieces().length > 0}
         <button class="btn ghost" type="button" onclick={clearPlacement}>Clear</button>
       {/if}
+      {#if mode === 'place' && placed.length > 0}
+        <button class="btn ghost" type="button" onclick={() => void shareSolution()}>Share</button>
+      {/if}
       {#if editing}
         <button
           class="btn primary"
@@ -1087,7 +1091,6 @@
         {#if resultView.canShare}
           <button class="btn ghost dark" type="button" onclick={() => void shareResult()}>Copy result</button>
         {/if}
-        <button class="btn ghost dark" type="button" onclick={() => void shareReplay()}>Copy replay link</button>
         {#if resultView.canNext}
           <button class="btn primary" type="button" onclick={nextPuzzle}>Next puzzle</button>
         {/if}
