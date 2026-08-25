@@ -3,7 +3,7 @@ import { defineConfig } from 'vitest/config';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
-  base: process.env.GITHUB_ACTIONS ? '/chessmatic/' : '/',
+  base: process.env.BASE_PATH ?? '/',
   plugins: [
     svelte(),
     VitePWA({

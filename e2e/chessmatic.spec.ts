@@ -4,7 +4,7 @@ import { encodePuzzle } from '../src/lib/puzzle-link';
 import type { PuzzleData } from '../src/lib/types';
 
 const data = JSON.parse(fs.readFileSync('chessmatic-puzzles.json', 'utf8')) as PuzzleData;
-const appPath = process.env.GITHUB_ACTIONS ? '/chessmatic/' : '/';
+const appPath = process.env.BASE_PATH ?? '/';
 const firstPuzzleName = data.puzzles[0].name;
 
 test('places the optimal setup and completes a battle', async ({ page }) => {
