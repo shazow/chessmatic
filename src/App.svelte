@@ -105,6 +105,7 @@
   let editorDesc = $state('');
   let editorTarget = $state(5);
   let drag = $state<DragState | null>(null);
+  let howToOpen = $state(readHowToOpen());
   let suppressClick = false;
   let resultCard = $state<HTMLDivElement | undefined>();
 
@@ -160,6 +161,22 @@
 
   function deployLabel(): string {
     return `${fileOf(deployment[0])}–${fileOf(deployment[1])}`;
+  }
+
+  function readHowToOpen(): boolean {
+    try {
+      return localStorage.getItem('howToCollapsed') !== '1';
+    } catch {
+      return true;
+    }
+  }
+
+  function storeHowToOpen(open: boolean): void {
+    try {
+      localStorage.setItem('howToCollapsed', open ? '0' : '1');
+    } catch {
+      // Private mode or blocked storage — the preference just won't persist.
+    }
   }
 
   function resetMessageWhenEmpty(): void {
@@ -764,7 +781,7 @@
     </section>
   {/if}
 
-  <details>
+  <details bind:open={howToOpen} ontoggle={() => storeHowToOpen(howToOpen)}>
     <summary>How to play</summary>
     <p>Chessmatic does not use a regular chess engine. Each piece gets a turn as an automaton, following a deterministic ruleset:</p>
     <p>Turns are ordered middle-to-back, then by vertically. Each piece must make a valid move, if available: Capture if safe or equal+ value, else creep one step toward the enemy preferring a safe position.</p>
