@@ -1118,6 +1118,12 @@
   {/if}
 </main>
 
+<footer class="site-footer">
+  <a href="https://github.com/shazow/chessmatic/" target="_blank" rel="noopener">Open Source</a>
+  <span class="sep" aria-hidden="true">·</span>
+  <a href="https://github.com/shazow/chessmatic/blob/main/HISTORY.md" target="_blank" rel="noopener">Change Log</a>
+</footer>
+
 {#if drag?.active}
   <div class:enemy={editing} class="drag-ghost" style:left={`${drag.x}px`} style:top={`${drag.y}px`} aria-hidden="true">
     {GLYPH[drag.source.type]}

@@ -45,7 +45,7 @@ button {
 .wrap {
   width: min(100% - 20px, 520px);
   margin: 0 auto;
-  padding: 14px 0 40px;
+  padding: 14px 0 72px;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -725,6 +725,42 @@ details ul {
 
 details li + li { margin-top: 6px; }
 details b { color: var(--brass); }
+
+.site-footer {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: 5;
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 12px;
+  padding: 9px 12px calc(9px + env(safe-area-inset-bottom));
+  font-size: 11px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  background: rgb(26 45 36 / 88%);
+  backdrop-filter: blur(6px);
+  border-top: 1px solid rgb(188 211 197 / 14%);
+}
+
+.site-footer a {
+  color: #9db8a8;
+  text-decoration: none;
+  transition: color .12s ease;
+}
+
+.site-footer a:hover {
+  color: var(--brass);
+}
+
+.site-footer a:focus-visible {
+  outline: 3px solid var(--paper);
+  outline-offset: 2px;
+}
+
+.site-footer .sep {
+  color: #557a66;
+}
 
 .drag-ghost {
   position: fixed;
