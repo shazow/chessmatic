@@ -1,12 +1,8 @@
-# Simple workflow for deploying static content to GitHub Pages
+# Automatic GitHub Pages deployment is disabled while Cloudflare Pages handles deployments.
+# Keep a manual trigger as a fallback if we switch back to GitHub Pages in the future.
 name: Deploy static content to Pages
 
 on:
-  # Runs on pushes targeting the default branch
-  push:
-    branches: ["main"]
-
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
 # Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
