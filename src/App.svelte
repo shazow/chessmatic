@@ -103,6 +103,8 @@
   let resultShown = false;
   let playTimer: number | null = null;
   let reduceMotionRun = false;
+  let shareCopied = $state(false);
+  let shareCopiedTimer: number | null = null;
   let threatFor = $state<string | null>(null);
   let spoilerArmed = $state(false);
   let shareUrl = $state('');
@@ -797,6 +799,14 @@
       messageHtml = copied
         ? '<b>Replay link copied.</b> It loads this puzzle with your setup placed, ready to play.'
         : '<b>Replay link ready.</b> Use Copy link to share this puzzle with your setup placed.';
+      if (copied) {
+        shareCopied = true;
+        if (shareCopiedTimer !== null) clearTimeout(shareCopiedTimer);
+        shareCopiedTimer = window.setTimeout(() => {
+          shareCopied = false;
+          shareCopiedTimer = null;
+        }, 1600);
+      }
     } catch (error) {
       messageHtml = error instanceof Error ? error.message : 'The replay link could not be created.';
     }
@@ -862,6 +872,7 @@
     return () => {
       window.removeEventListener('hashchange', routeHash);
       stopTimer();
+      if (shareCopiedTimer !== null) clearTimeout(shareCopiedTimer);
     };
   });
 </script>
@@ -953,7 +964,14 @@
         <button class="btn ghost" type="button" onclick={clearPlacement}>Clear</button>
       {/if}
       {#if mode === 'place' && placed.length > 0}
-        <button class="btn ghost" type="button" onclick={() => void shareSolution()}>Share</button>
+        <button
+          class="btn ghost icon"
+          class:share-copied={shareCopied}
+          type="button"
+          aria-label="Copy replay link"
+          title="Copy replay link"
+          onclick={() => void shareSolution()}
+        >{shareCopied ? '✓' : '🔗'}</button>
       {/if}
       {#if editing}
         <button
