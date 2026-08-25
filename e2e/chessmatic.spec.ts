@@ -19,10 +19,11 @@ test('places the optimal setup and completes a battle', async ({ page }) => {
 
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.getByRole('button', { name: 'Play', exact: true }).click();
-  const dialog = page.getByRole('dialog');
-  await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole('heading', { name: 'Position won' })).toBeVisible();
-  await expect(dialog).toContainText('That is the cheapest possible answer.');
+  const sheet = page.locator('.sheet');
+  await expect(sheet).toContainText('Position won');
+  await expect(sheet).toContainText('That is the cheapest possible answer.');
+  await expect(page.locator('.board-shell')).toHaveClass(/won/);
+  await expect(page.getByRole('button', { name: '🏆 Next Puzzle' })).toBeVisible();
 
   await page.reload();
   const solvedChip = page.getByRole('button', { name: new RegExp(`^I ?${data.puzzles[0].optimalCost}$`) });
@@ -37,10 +38,14 @@ test('steps through the scoresheet and scrubs the previous run', async ({ page }
   await page.getByRole('button', { name: 'Spoiler' }).click();
   await page.getByRole('button', { name: 'Reveal optimal?' }).click();
   await page.getByRole('button', { name: 'Play', exact: true }).click();
-  const dialog = page.getByRole('dialog');
-  await expect(dialog).toBeVisible();
-  await dialog.getByRole('button', { name: 'Close' }).click();
-  await expect(dialog).toBeHidden();
+  const sheet = page.locator('.sheet');
+  await expect(sheet).toContainText('Position won');
+
+  const collapsedHeight = (await sheet.boundingBox())!.height;
+  await page.getByRole('button', { name: 'Resize scoresheet' }).click();
+  const expandedHeight = (await sheet.boundingBox())!.height;
+  expect(expandedHeight).toBeGreaterThan(collapsedHeight * 2);
+  await page.getByRole('button', { name: 'Resize scoresheet' }).click();
 
   const firstMove = page.locator('.sheet button.mv').first();
   await firstMove.click();
@@ -84,7 +89,7 @@ test('loads a shared replay link with the solution pre-placed', async ({ page })
   await expect(page.getByText('Shared Replay')).toBeVisible();
   await expect(page.getByText(/shared solution/)).toBeVisible();
   await page.getByRole('button', { name: 'Play', exact: true }).click();
-  await expect(page.getByRole('dialog').getByRole('heading', { name: 'Position won' })).toBeVisible();
+  await expect(page.locator('.sheet')).toContainText('Position won');
 });
 
 test('creates and loads a custom puzzle from its hash route', async ({ page }) => {
