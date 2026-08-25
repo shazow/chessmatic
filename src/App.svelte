@@ -162,15 +162,8 @@
     return `${fileOf(deployment[0])}–${fileOf(deployment[1])}`;
   }
 
-  function defaultMessage(): string {
-    if (editing) {
-      return `Build the house force on files ${deployLabel()}. Drag a piece from the tray, or tap it and then tap a square.`;
-    }
-    return `Drag pieces onto files ${deployLabel()} (or tap to select, tap to place). Number badges show the global turn order. Tap an enemy piece to see its strike range. The house plays White and moves first.`;
-  }
-
   function resetMessageWhenEmpty(): void {
-    if (placementPieces().length === 0) messageHtml = defaultMessage();
+    if (placementPieces().length === 0) messageHtml = '';
   }
 
   function benchmarkCost(puzzle: AppPuzzle): number {
@@ -247,7 +240,7 @@
       clearAppHash();
       shareUrl = '';
     }
-    messageHtml = defaultMessage();
+    messageHtml = '';
   }
 
   function onSelectType(type: PieceType): void {
@@ -481,7 +474,7 @@
     threatFor = null;
     pinnedIds = [];
     disarmSpoiler();
-    messageHtml = defaultMessage();
+    messageHtml = '';
   }
 
   function disarmSpoiler(): void {
@@ -511,7 +504,7 @@
     selectedType = null;
     threatFor = null;
     disarmSpoiler();
-    messageHtml = defaultMessage();
+    messageHtml = '';
   }
 
   function cancelEditor(): void {
@@ -519,7 +512,7 @@
     editorPieces = [];
     selectedType = null;
     threatFor = null;
-    messageHtml = defaultMessage();
+    messageHtml = '';
   }
 
   async function saveEditorPuzzle(): Promise<void> {
@@ -618,6 +611,7 @@
     lastMove = null;
     disarmSpoiler();
     shareUrl = '';
+    messageHtml = '';
   }
 
   function routeHash(): void {
@@ -643,9 +637,7 @@
         puzzles = puzzles.filter((candidate) => candidate.kind === 'official');
         currentIndex = 0;
         messageHtml = 'The URL route is invalid, so the first club puzzle was loaded instead.';
-        return;
       }
-      messageHtml = defaultMessage();
     } catch {
       puzzles = puzzles.filter((candidate) => candidate.kind === 'official');
       currentIndex = 0;
@@ -654,7 +646,6 @@
   }
 
   onMount(() => {
-    messageHtml = defaultMessage();
     routeHash();
     window.addEventListener('hashchange', routeHash);
     return () => window.removeEventListener('hashchange', routeHash);
@@ -744,7 +735,9 @@
       {editing ? (editorPieces.length === 1 ? 'piece' : 'pieces') : 'pts'}
     </div>
     <div class="btns">
-      <button class="btn ghost" type="button" disabled={playing} onclick={clearPlacement}>Clear</button>
+      {#if (mode === 'place' || editing) && placementPieces().length > 0}
+        <button class="btn ghost" type="button" onclick={clearPlacement}>Clear</button>
+      {/if}
       {#if playing}
         <button class="btn ghost" type="button" onclick={() => { finishRequested = true; }}>Finish ≫</button>
       {/if}
@@ -764,10 +757,12 @@
     </div>
   {/if}
 
-  <section class="sheet" aria-label="Scoresheet" aria-live="polite">
-    <span class="lbl">Scoresheet</span>
-    <div class="moves">{@html messageHtml}</div>
-  </section>
+  {#if messageHtml}
+    <section class="sheet" aria-label="Scoresheet" aria-live="polite">
+      <span class="lbl">Scoresheet</span>
+      <div class="moves">{@html messageHtml}</div>
+    </section>
+  {/if}
 
   <details>
     <summary>How to play</summary>
