@@ -105,6 +105,7 @@
   let editorDesc = $state('');
   let editorTarget = $state(5);
   let drag = $state<DragState | null>(null);
+  let howToOpen = $state(readHowToOpen());
   let suppressClick = false;
   let resultCard = $state<HTMLDivElement | undefined>();
 
@@ -162,15 +163,24 @@
     return `${fileOf(deployment[0])}–${fileOf(deployment[1])}`;
   }
 
-  function defaultMessage(): string {
-    if (editing) {
-      return `Build the house force on files ${deployLabel()}. Drag a piece from the tray, or tap it and then tap a square.`;
+  function readHowToOpen(): boolean {
+    try {
+      return localStorage.getItem('howToCollapsed') !== '1';
+    } catch {
+      return true;
     }
-    return `Drag pieces onto files ${deployLabel()} (or tap to select, tap to place). Number badges show the global turn order. Tap an enemy piece to see its strike range. The house plays White and moves first.`;
+  }
+
+  function storeHowToOpen(open: boolean): void {
+    try {
+      localStorage.setItem('howToCollapsed', open ? '0' : '1');
+    } catch {
+      // Private mode or blocked storage — the preference just won't persist.
+    }
   }
 
   function resetMessageWhenEmpty(): void {
-    if (placementPieces().length === 0) messageHtml = defaultMessage();
+    if (placementPieces().length === 0) messageHtml = '';
   }
 
   function benchmarkCost(puzzle: AppPuzzle): number {
@@ -247,7 +257,7 @@
       clearAppHash();
       shareUrl = '';
     }
-    messageHtml = defaultMessage();
+    messageHtml = '';
   }
 
   function onSelectType(type: PieceType): void {
@@ -481,7 +491,7 @@
     threatFor = null;
     pinnedIds = [];
     disarmSpoiler();
-    messageHtml = defaultMessage();
+    messageHtml = '';
   }
 
   function disarmSpoiler(): void {
@@ -511,7 +521,7 @@
     selectedType = null;
     threatFor = null;
     disarmSpoiler();
-    messageHtml = defaultMessage();
+    messageHtml = '';
   }
 
   function cancelEditor(): void {
@@ -519,7 +529,7 @@
     editorPieces = [];
     selectedType = null;
     threatFor = null;
-    messageHtml = defaultMessage();
+    messageHtml = '';
   }
 
   async function saveEditorPuzzle(): Promise<void> {
@@ -618,6 +628,7 @@
     lastMove = null;
     disarmSpoiler();
     shareUrl = '';
+    messageHtml = '';
   }
 
   function routeHash(): void {
@@ -643,9 +654,7 @@
         puzzles = puzzles.filter((candidate) => candidate.kind === 'official');
         currentIndex = 0;
         messageHtml = 'The URL route is invalid, so the first club puzzle was loaded instead.';
-        return;
       }
-      messageHtml = defaultMessage();
     } catch {
       puzzles = puzzles.filter((candidate) => candidate.kind === 'official');
       currentIndex = 0;
@@ -654,7 +663,6 @@
   }
 
   onMount(() => {
-    messageHtml = defaultMessage();
     routeHash();
     window.addEventListener('hashchange', routeHash);
     return () => window.removeEventListener('hashchange', routeHash);
@@ -744,7 +752,9 @@
       {editing ? (editorPieces.length === 1 ? 'piece' : 'pieces') : 'pts'}
     </div>
     <div class="btns">
-      <button class="btn ghost" type="button" disabled={playing} onclick={clearPlacement}>Clear</button>
+      {#if (mode === 'place' || editing) && placementPieces().length > 0}
+        <button class="btn ghost" type="button" onclick={clearPlacement}>Clear</button>
+      {/if}
       {#if playing}
         <button class="btn ghost" type="button" onclick={() => { finishRequested = true; }}>Finish ≫</button>
       {/if}
@@ -764,12 +774,14 @@
     </div>
   {/if}
 
-  <section class="sheet" aria-label="Scoresheet" aria-live="polite">
-    <span class="lbl">Scoresheet</span>
-    <div class="moves">{@html messageHtml}</div>
-  </section>
+  {#if messageHtml}
+    <section class="sheet" aria-label="Scoresheet" aria-live="polite">
+      <span class="lbl">Scoresheet</span>
+      <div class="moves">{@html messageHtml}</div>
+    </section>
+  {/if}
 
-  <details>
+  <details bind:open={howToOpen} ontoggle={() => storeHowToOpen(howToOpen)}>
     <summary>How to play</summary>
     <p>Chessmatic does not use a regular chess engine. Each piece gets a turn as an automaton, following a deterministic ruleset:</p>
     <p>Turns are ordered middle-to-back, then by vertically. Each piece must make a valid move, if available: Capture if safe or equal+ value, else creep one step toward the enemy preferring a safe position.</p>
