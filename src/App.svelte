@@ -994,22 +994,32 @@
           onclick={() => void saveEditorPuzzle()}
         >Save</button>
       {:else}
-        <button
-          class="btn ghost icon"
-          type="button"
-          disabled={!lastRun || (cursor === 0 && !playing)}
-          aria-label="Rewind to setup"
-          title="Rewind to setup"
-          onclick={rewind}
-        >⏮</button>
-        <button
-          class="btn ghost icon"
-          type="button"
-          disabled={!lastRun || cursor === 0}
-          aria-label="Step back"
-          title="Step back"
-          onclick={stepBack}
-        >⏴</button>
+        <div class="btn-group" role="group" aria-label="Playback controls">
+          <button
+            class="btn ghost icon"
+            type="button"
+            disabled={!lastRun || (cursor === 0 && !playing)}
+            aria-label="Rewind to setup"
+            title="Rewind to setup"
+            onclick={rewind}
+          >⏮</button>
+          <button
+            class="btn ghost icon"
+            type="button"
+            disabled={!lastRun || cursor === 0}
+            aria-label="Step back"
+            title="Step back"
+            onclick={stepBack}
+          >⏴</button>
+          <button
+            class="btn ghost icon"
+            type="button"
+            disabled={(!placed.length && !lastRun) || atEnd}
+            aria-label="Step forward"
+            title="Step forward"
+            onclick={stepForward}
+          >⏵</button>
+        </div>
         {#if outcome === 'loss'}
           <button class="btn primary" type="button" onclick={rewind}>Reset</button>
         {:else}
@@ -1020,14 +1030,6 @@
             onclick={togglePlay}
           >{playing ? 'Pause' : 'Play'}</button>
         {/if}
-        <button
-          class="btn ghost icon"
-          type="button"
-          disabled={(!placed.length && !lastRun) || atEnd}
-          aria-label="Step forward"
-          title="Step forward"
-          onclick={stepForward}
-        >⏵</button>
         {#if outcome === 'win' && canNext}
           <button class="btn primary" type="button" onclick={nextPuzzle}>🏆 Next Puzzle</button>
         {/if}
@@ -1115,6 +1117,12 @@
     </div>
   {/if}
 </main>
+
+<footer class="site-footer">
+  <a href="https://github.com/shazow/chessmatic/" target="_blank" rel="noopener">Open Source</a>
+  <span class="sep" aria-hidden="true">·</span>
+  <a href="https://github.com/shazow/chessmatic/blob/main/HISTORY.md" target="_blank" rel="noopener">Change Log</a>
+</footer>
 
 {#if drag?.active}
   <div class:enemy={editing} class="drag-ghost" style:left={`${drag.x}px`} style:top={`${drag.y}px`} aria-hidden="true">

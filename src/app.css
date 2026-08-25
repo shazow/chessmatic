@@ -23,9 +23,15 @@
 }
 
 html,
-body,
-#app {
+body {
   min-height: 100%;
+}
+
+#app {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
 }
 
 body {
@@ -45,6 +51,7 @@ button {
 .wrap {
   width: min(100% - 20px, 520px);
   margin: 0 auto;
+  flex: 1 0 auto;
   padding: 14px 0 40px;
   display: flex;
   flex-direction: column;
@@ -466,6 +473,9 @@ h1 .brand-name {
 .spend {
   font-family: Georgia, serif;
   font-size: 15px;
+  padding: 9px 14px;
+  background: rgb(233 220 190 / 6%);
+  border-radius: 8px;
 }
 
 .spend strong {
@@ -492,7 +502,7 @@ h1 .brand-name {
   font-size: 14px;
   font-weight: 600;
   letter-spacing: .04em;
-  border: 0;
+  border: 1px solid transparent;
   border-radius: 8px;
   padding: 10px 16px;
   cursor: pointer;
@@ -507,7 +517,7 @@ h1 .brand-name {
 .btn.primary {
   background: var(--brass);
   color: #231d08;
-  box-shadow: 0 2px 0 #8a6d12;
+  box-shadow: inset 0 -2px 0 #8a6d12;
 }
 
 .btn.primary:not(:disabled):hover {
@@ -515,8 +525,8 @@ h1 .brand-name {
 }
 
 .btn.primary:not(:disabled):active {
-  transform: translateY(2px);
-  box-shadow: 0 0 0 #8a6d12;
+  transform: translateY(1px);
+  box-shadow: inset 0 0 0 #8a6d12;
 }
 
 .btn.ghost {
@@ -548,6 +558,29 @@ h1 .brand-name {
   padding: 10px 12px;
   font-size: 15px;
   line-height: 1;
+}
+
+.btn-group {
+  display: flex;
+  border: 1px solid #557a66;
+  border-radius: 8px;
+}
+
+.btn-group .btn.ghost {
+  border: 0;
+  border-radius: 0;
+}
+
+.btn-group .btn.ghost:first-child {
+  border-radius: 7px 0 0 7px;
+}
+
+.btn-group .btn.ghost:last-child {
+  border-radius: 0 7px 7px 0;
+}
+
+.btn-group .btn.ghost + .btn.ghost {
+  border-left: 1px solid rgb(85 122 102 / 45%);
 }
 
 .btn:disabled {
@@ -702,6 +735,37 @@ details ul {
 
 details li + li { margin-top: 6px; }
 details b { color: var(--brass); }
+
+.site-footer {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 12px;
+  padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
+  font-size: 11px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  border-top: 1px solid rgb(188 211 197 / 14%);
+}
+
+.site-footer a {
+  color: #9db8a8;
+  text-decoration: none;
+  transition: color .12s ease;
+}
+
+.site-footer a:hover {
+  color: var(--brass);
+}
+
+.site-footer a:focus-visible {
+  outline: 3px solid var(--paper);
+  outline-offset: 2px;
+}
+
+.site-footer .sep {
+  color: #557a66;
+}
 
 .drag-ghost {
   position: fixed;
