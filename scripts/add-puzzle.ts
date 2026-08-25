@@ -8,6 +8,7 @@ import type { Puzzle, PuzzleData, SetupPiece } from '../src/lib/types';
 
 interface AddOptions {
   id?: string;
+  index?: number;
   dataPath: string;
   input: string;
 }
@@ -77,18 +78,32 @@ export function buildOfficialPuzzle(input: string, data: PuzzleData, idOverride?
   };
 }
 
-function parseArguments(args: string[]): AddOptions {
+export function insertPuzzle(puzzles: Puzzle[], puzzle: Puzzle, index = puzzles.length): void {
+  if (!Number.isInteger(index) || index < 0 || index > puzzles.length) {
+    throw new Error(`Puzzle index must be a whole number from 0 to ${puzzles.length}.`);
+  }
+  puzzles.splice(index, 0, puzzle);
+}
+
+export function parseArguments(args: string[]): AddOptions {
   let id: string | undefined;
+  let insertionIndex: number | undefined;
   let dataPath = './chessmatic-puzzles.json';
   let input: string | undefined;
 
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
-    if (argument === '--id' || argument === '--data') {
+    if (argument === '--id' || argument === '--data' || argument === '--index') {
       const value = args[index + 1];
-      if (!value) throw new Error(`${argument} requires a value.`);
+      if (!value || value.startsWith('--')) throw new Error(`${argument} requires a value.`);
       if (argument === '--id') id = value;
-      else dataPath = value;
+      else if (argument === '--data') dataPath = value;
+      else {
+        insertionIndex = Number(value);
+        if (!Number.isInteger(insertionIndex) || insertionIndex < 0) {
+          throw new Error('--index must be a non-negative whole number.');
+        }
+      }
       index += 1;
     } else if (argument.startsWith('--')) {
       throw new Error(`Unknown option: ${argument}`);
@@ -99,8 +114,10 @@ function parseArguments(args: string[]): AddOptions {
     }
   }
 
-  if (!input) throw new Error('Usage: npm run puzzles:add -- <url-or-code> [--id puzzle-id] [--data path]');
-  return { id, dataPath, input };
+  if (!input) {
+    throw new Error('Usage: npm run puzzles:add -- <url-or-code> [--index number] [--id puzzle-id] [--data path]');
+  }
+  return { id, index: insertionIndex, dataPath, input };
 }
 
 function main(): void {
@@ -109,10 +126,11 @@ function main(): void {
     const data = JSON.parse(fs.readFileSync(options.dataPath, 'utf8')) as PuzzleData;
     const savedPar = decodePuzzle(puzzleCodeFromInput(options.input), data).par;
     const puzzle = buildOfficialPuzzle(options.input, data, options.id);
-    data.puzzles.push(puzzle);
+    const insertionIndex = options.index ?? data.puzzles.length;
+    insertPuzzle(data.puzzles, puzzle, insertionIndex);
     fs.writeFileSync(options.dataPath, `${JSON.stringify(data, null, 2)}\n`);
     const correction = savedPar === puzzle.par ? '' : ` (saved target was ${savedPar})`;
-    console.log(`Added ${puzzle.id} at verified par ${puzzle.par}${correction} to ${options.dataPath}`);
+    console.log(`Added ${puzzle.id} at index ${insertionIndex}, verified par ${puzzle.par}${correction}, to ${options.dataPath}`);
   } catch (error) {
     console.error(error instanceof Error ? error.message : 'The puzzle could not be added.');
     process.exitCode = 1;

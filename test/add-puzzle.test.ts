@@ -1,6 +1,12 @@
 import fs from 'node:fs';
 import { expect, test } from 'vitest';
-import { buildOfficialPuzzle, puzzleCodeFromInput, puzzleIdFromName } from '../scripts/add-puzzle';
+import {
+  buildOfficialPuzzle,
+  insertPuzzle,
+  parseArguments,
+  puzzleCodeFromInput,
+  puzzleIdFromName,
+} from '../scripts/add-puzzle';
 import { createEngine } from '../src/lib/engine';
 import type { PuzzleData } from '../src/lib/types';
 
@@ -31,4 +37,23 @@ test('normalizes IDs and rejects duplicate imports', () => {
   const puzzle = buildOfficialPuzzle(url, data);
   const withPuzzle = { ...data, puzzles: [...data.puzzles, puzzle] };
   expect(() => buildOfficialPuzzle(url, withPuzzle)).toThrow(/already exists/);
+});
+
+test('inserts puzzles at a zero-based index and shifts later entries', () => {
+  const puzzle = buildOfficialPuzzle(url, data);
+  const puzzles = [...data.puzzles];
+  const shiftedId = puzzles[2].id;
+  insertPuzzle(puzzles, puzzle, 2);
+  expect(puzzles[2]).toBe(puzzle);
+  expect(puzzles[3].id).toBe(shiftedId);
+
+  expect(() => insertPuzzle([...data.puzzles], puzzle, -1)).toThrow(/whole number from 0/);
+  expect(() => insertPuzzle([...data.puzzles], puzzle, data.puzzles.length + 1)).toThrow(/whole number from 0/);
+});
+
+test('parses and validates the optional index flag', () => {
+  expect(parseArguments([url, '--index', '0'])).toMatchObject({ input: url, index: 0 });
+  expect(parseArguments(['--index', '3', url])).toMatchObject({ input: url, index: 3 });
+  expect(() => parseArguments([url, '--index', '1.5'])).toThrow(/non-negative whole number/);
+  expect(() => parseArguments([url, '--index', 'nope'])).toThrow(/non-negative whole number/);
 });
