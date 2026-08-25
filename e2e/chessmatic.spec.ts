@@ -25,6 +25,43 @@ test('places the optimal setup and completes a battle', async ({ page }) => {
   await expect(dialog).toContainText('That is the cheapest possible answer.');
 });
 
+test('reviews moves on the scoresheet and replays the previous run', async ({ page }) => {
+  await page.goto(appPath);
+  await page.getByRole('button', { name: 'Spoiler' }).click();
+  await page.getByRole('button', { name: 'Reveal optimal?' }).click();
+  await page.getByRole('button', { name: 'Start battle' }).click();
+  await page.getByRole('button', { name: 'Finish ≫' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: 'Review moves' }).click();
+  await expect(dialog).toBeHidden();
+
+  const firstMove = page.locator('.sheet button.mv').first();
+  await firstMove.click();
+  await expect(firstMove).toHaveClass(/sel/);
+
+  await page.getByRole('button', { name: 'Replay', exact: true }).click();
+  await page.getByRole('button', { name: 'Finish ≫' }).click();
+  await expect(page.getByRole('button', { name: 'Replay', exact: true })).toBeVisible();
+  await expect(page.getByRole('dialog')).toBeHidden();
+});
+
+test('loads a shared replay link with the solution pre-placed', async ({ page }) => {
+  const code = encodePuzzle({
+    name: 'Shared Replay',
+    desc: 'Includes a solution.',
+    targetCost: data.puzzles[0].par,
+    enemy: data.puzzles[0].enemy,
+    solution: data.puzzles[0].solution,
+  }, data);
+  await page.goto(`${appPath}#puzzle=${code}`);
+  await expect(page.getByText('Shared Replay')).toBeVisible();
+  await expect(page.getByText(/shared solution/)).toBeVisible();
+  await page.getByRole('button', { name: 'Start battle' }).click();
+  await page.getByRole('button', { name: 'Finish ≫' }).click();
+  await expect(page.getByRole('dialog').getByRole('heading', { name: 'Position won' })).toBeVisible();
+});
+
 test('creates and loads a custom puzzle from its hash route', async ({ page }) => {
   await page.goto(appPath);
   await page.getByRole('button', { name: 'Editor' }).click();

@@ -545,6 +545,22 @@ summary:focus-visible {
 .sheet .mv.enemy { color: var(--signal); }
 .sheet .mv.player { color: #2e5c44; }
 
+.sheet button.mv {
+  background: none;
+  border: 0;
+  padding: 0 3px;
+  margin: 0 -3px;
+  border-radius: 4px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sheet button.mv:disabled { cursor: default; }
+.sheet button.mv:not(:disabled):hover { text-decoration: underline; }
+.sheet button.mv:focus-visible { outline: 2px solid var(--signal); outline-offset: 0; }
+.sheet button.mv.sel { background: rgb(176 141 24 / 30%); }
+
 details {
   background: rgb(0 0 0 / 22%);
   border-radius: 10px;
