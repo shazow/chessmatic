@@ -3,19 +3,41 @@ import type { PieceType, PuzzleData, SetupPiece, SharedPuzzle } from './types';
 const FORMAT_VERSION = 1;
 const PIECE_TYPES = new Set<PieceType>(['P', 'N', 'B', 'R', 'Q']);
 
+const SIDE_ERRORS = {
+  enemy: {
+    count: 'A puzzle must contain 1–24 enemy pieces.',
+    zone: 'Every enemy piece must be inside its deployment zone.',
+    overlap: 'Two enemy pieces cannot share a square.',
+  },
+  solution: {
+    count: 'A shared solution must contain 1–24 pieces.',
+    zone: 'Every solution piece must be inside its deployment zone.',
+    overlap: 'Two solution pieces cannot share a square.',
+  },
+} as const;
+
+function validateText(value: unknown, label: string, maxLength: number): string {
+  const text = typeof value === 'string' ? value.trim() : '';
+  if (text.length > maxLength) throw new Error(`Puzzle ${label} must be at most ${maxLength} characters.`);
+  return text;
+}
+
+function validateTargetCost(value: unknown): number {
+  const targetCost = Number(value);
+  if (!Number.isInteger(targetCost) || targetCost < 1 || targetCost > 999) {
+    throw new Error('Target must be a whole number from 1–999.');
+  }
+  return targetCost;
+}
+
 export function validatePuzzle(puzzle: unknown, data: PuzzleData): SharedPuzzle {
   if (!puzzle || typeof puzzle !== 'object' || Array.isArray(puzzle)) {
     throw new Error('Puzzle data must be an object.');
   }
   const candidate = puzzle as Record<string, unknown>;
-  const name = typeof candidate.name === 'string' ? candidate.name.trim() : '';
-  const desc = typeof candidate.desc === 'string' ? candidate.desc.trim() : '';
-  const targetCost = Number(candidate.targetCost);
-  if (name.length > 80) throw new Error('Puzzle title must be at most 80 characters.');
-  if (desc.length > 240) throw new Error('Puzzle description must be at most 240 characters.');
-  if (!Number.isInteger(targetCost) || targetCost < 1 || targetCost > 999) {
-    throw new Error('Target must be a whole number from 1–999.');
-  }
+  const name = validateText(candidate.name, 'title', 80);
+  const desc = validateText(candidate.desc, 'description', 240);
+  const targetCost = validateTargetCost(candidate.targetCost);
   const enemy = validatePieces(candidate.enemy, data, 'enemy');
   const solution = candidate.solution === undefined || (Array.isArray(candidate.solution) && candidate.solution.length === 0)
     ? undefined
@@ -24,37 +46,45 @@ export function validatePuzzle(puzzle: unknown, data: PuzzleData): SharedPuzzle 
   return solution ? { name, desc, targetCost, enemy, solution } : { name, desc, targetCost, enemy };
 }
 
+function parsePieceType(rawPiece: unknown): PieceType {
+  if (!rawPiece || typeof rawPiece !== 'object' || Array.isArray(rawPiece)) {
+    throw new Error('Puzzle contains an unknown piece.');
+  }
+  const type = (rawPiece as Record<string, unknown>).type as PieceType;
+  if (!PIECE_TYPES.has(type)) throw new Error('Puzzle contains an unknown piece.');
+  return type;
+}
+
+function inDeployZone(
+  col: number,
+  row: number,
+  deploy: readonly [number, number],
+  cols: number,
+  rows: number,
+): boolean {
+  return Number.isInteger(col) && Number.isInteger(row)
+    && col >= deploy[0] && col <= deploy[1] && col < cols
+    && row >= 0 && row < rows;
+}
+
 function validatePieces(pieces: unknown, data: PuzzleData, side: 'enemy' | 'solution'): SetupPiece[] {
+  const errors = SIDE_ERRORS[side];
   if (!Array.isArray(pieces) || pieces.length < 1 || pieces.length > 24) {
-    throw new Error(side === 'enemy'
-      ? 'A puzzle must contain 1–24 enemy pieces.'
-      : 'A shared solution must contain 1–24 pieces.');
+    throw new Error(errors.count);
   }
   const { cols, rows } = data.board;
   const deploy = data.sides[side === 'enemy' ? 'enemy' : 'player'].deploy;
   const occupied = new Set<string>();
   return pieces.map((rawPiece) => {
-    if (!rawPiece || typeof rawPiece !== 'object' || Array.isArray(rawPiece)) {
-      throw new Error('Puzzle contains an unknown piece.');
-    }
+    const type = parsePieceType(rawPiece);
     const piece = rawPiece as Record<string, unknown>;
-    if (!PIECE_TYPES.has(piece.type as PieceType)) throw new Error('Puzzle contains an unknown piece.');
     const col = Number(piece.col);
     const row = Number(piece.row);
-    if (!Number.isInteger(col) || !Number.isInteger(row)
-        || col < deploy[0] || col > deploy[1] || col >= cols || row < 0 || row >= rows) {
-      throw new Error(side === 'enemy'
-        ? 'Every enemy piece must be inside its deployment zone.'
-        : 'Every solution piece must be inside its deployment zone.');
-    }
+    if (!inDeployZone(col, row, deploy, cols, rows)) throw new Error(errors.zone);
     const square = `${col},${row}`;
-    if (occupied.has(square)) {
-      throw new Error(side === 'enemy'
-        ? 'Two enemy pieces cannot share a square.'
-        : 'Two solution pieces cannot share a square.');
-    }
+    if (occupied.has(square)) throw new Error(errors.overlap);
     occupied.add(square);
-    return { type: piece.type as PieceType, col, row };
+    return { type, col, row };
   });
 }
 

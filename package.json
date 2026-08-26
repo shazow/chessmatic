@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
+    "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
@@ -15,17 +16,20 @@
     "puzzles:add": "tsx scripts/add-puzzle.ts",
     "puzzles": "tsx scripts/solve-puzzles.ts",
     "puzzles:check": "tsx scripts/solve-puzzles.ts --check",
-    "validate": "npm run check && npm run test && npm run puzzles:check && npm run build && npm run test:e2e"
+    "validate": "npm run lint && npm run check && npm run test && npm run puzzles:check && npm run build && npm run test:e2e"
   },
   "devDependencies": {
     "@playwright/test": "1.61.1",
     "@sveltejs/vite-plugin-svelte": "7.3.0",
     "@types/node": "24.10.1",
+    "eslint": "^10.9.1",
+    "eslint-plugin-svelte": "^3.23.0",
     "sharp": "^0.35.3",
     "svelte": "5.56.10",
     "svelte-check": "4.7.6",
     "tsx": "4.20.6",
     "typescript": "6.0.3",
+    "typescript-eslint": "^8.68.0",
     "vite": "8.2.2",
     "vite-plugin-pwa": "1.3.0",
     "vitest": "4.1.11"
