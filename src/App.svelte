@@ -1036,7 +1036,7 @@
           >⏵</button>
         </div>
         {#if outcome === 'loss'}
-          <button class="btn primary" type="button" onclick={rewind}>Reset</button>
+          <button class="btn teal" type="button" onclick={rewind}>Reset</button>
         {:else}
           <button
             class="btn primary"
@@ -1046,7 +1046,7 @@
           >{playing ? 'Pause' : 'Play'}</button>
         {/if}
         {#if outcome === 'win' && canNext}
-          <button class="btn primary" type="button" onclick={nextPuzzle}>🏆 Next Puzzle</button>
+          <button class="btn teal" type="button" onclick={nextPuzzle}>🏆 Next Puzzle</button>
         {/if}
       {/if}
     </div>
