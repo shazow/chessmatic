@@ -145,11 +145,13 @@ export function createEngine(data: PuzzleData): Engine {
     )) || (candidateCol === col && candidateRow === row);
     const considered = (other: BattlePiece) => other.alive && other !== piece && other !== ignoredPiece;
 
-    const attackers = pieces.filter((enemy) => considered(enemy)
-      && enemy.side !== piece.side
-      && attacksSquare(enemy, col, row, occupied));
-    if (!attackers.length) return false;
-    if (attackers.some((enemy) => cost[enemy.type] <= cost[piece.type])) return true;
+    let attackedByExpensivePiece = false;
+    for (const enemy of pieces) {
+      if (!considered(enemy) || enemy.side === piece.side || !attacksSquare(enemy, col, row, occupied)) continue;
+      if (cost[enemy.type] <= cost[piece.type]) return true;
+      attackedByExpensivePiece = true;
+    }
+    if (!attackedByExpensivePiece) return false;
     // Only pricier attackers remain: the square is safe if any ally defends it.
     return !pieces.some((ally) => considered(ally)
       && ally.side === piece.side

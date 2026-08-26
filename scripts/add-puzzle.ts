@@ -106,15 +106,15 @@ export function parseArguments(args: string[]): AddOptions {
   let insertionIndex: number | undefined;
   let dataPath = './chessmatic-puzzles.json';
   let input: string | undefined;
-  const setters: Record<string, (value: string) => void> = {
-    '--id': (value) => { id = value; },
-    '--data': (value) => { dataPath = value; },
-    '--index': (value) => { insertionIndex = parseIndexValue(value); },
-  };
+  const setters = new Map<string, (value: string) => void>([
+    ['--id', (value) => { id = value; }],
+    ['--data', (value) => { dataPath = value; }],
+    ['--index', (value) => { insertionIndex = parseIndexValue(value); }],
+  ]);
 
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
-    const setter = setters[argument];
+    const setter = setters.get(argument);
     if (setter) {
       const value = args[index + 1];
       if (!value || value.startsWith('--')) throw new Error(`${argument} requires a value.`);
