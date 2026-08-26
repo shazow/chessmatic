@@ -23,12 +23,14 @@ test('places the optimal setup and completes a battle', async ({ page }) => {
   await expect(sheet).toContainText('Position won');
   await expect(sheet).toContainText('That is the cheapest possible answer.');
   await expect(page.locator('.board-shell')).toHaveClass(/won/);
+  await expect(sheet).toContainText(/\d+ rounds? ·/);
+  await expect(page.getByRole('button', { name: 'Share result' })).toBeVisible();
   await expect(page.getByRole('button', { name: '🏆 Next Puzzle' })).toBeVisible();
 
   await page.reload();
   const solvedChip = page.getByRole('button', { name: new RegExp(`^I ?${data.puzzles[0].optimalCost}$`) });
   await expect(solvedChip).toBeVisible();
-  await expect(solvedChip).toHaveAttribute('title', `Solved — best ${data.puzzles[0].optimalCost} pts`);
+  await expect(solvedChip).toHaveAttribute('title', new RegExp(`^Solved — best ${data.puzzles[0].optimalCost} pts · \\d+ rounds?$`));
   await expect(page.getByRole('button', { name: 'II', exact: true })).toHaveAttribute('title', 'Start here');
 });
 

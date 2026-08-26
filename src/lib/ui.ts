@@ -1,4 +1,4 @@
-import type { PieceType } from './types';
+import type { PieceType, Simulation } from './types';
 
 export const PIECE_TYPES: PieceType[] = ['P', 'N', 'B', 'R', 'Q'];
 export const GLYPH: Record<PieceType, string> = {
@@ -59,15 +59,33 @@ export function verdictFor(spend: number, benchmark: number, optimalCost?: numbe
   return [`${over} over par.`, 'A win is a win. A cheaper win is a brag.'];
 }
 
+export function roundsUsed(run: Simulation): number {
+  return run.events.length ? run.events[run.events.length - 1].round + 1 : 0;
+}
+
+export const roundsLabel = (rounds: number): string => `${rounds} ${rounds === 1 ? 'round' : 'rounds'}`;
+
+export function battleTimeline(run: Simulation): string {
+  const rounds = new Map<number, { player: boolean; enemy: boolean }>();
+  for (const step of run.events) {
+    const entry = rounds.get(step.round) ?? { player: false, enemy: false };
+    if (step.ev?.captured) entry[step.side] = true;
+    rounds.set(step.round, entry);
+  }
+  return [...rounds.values()]
+    .map(({ player, enemy }) => (player && enemy ? '🟧' : player ? '🟩' : enemy ? '🟥' : '⬜'))
+    .join('');
+}
+
 export function resultShareText(
   puzzleName: string,
   spend: number,
   benchmark: number,
-  benchmarkLabel: 'par' | 'target',
+  run: Simulation,
 ): string {
-  const over = Math.max(0, spend - benchmark);
-  const blocks = benchmark <= 20
-    ? '🟩'.repeat(benchmark) + (over <= 5 ? '🟨'.repeat(over) : `${'🟨'.repeat(5)}➕`)
-    : `${benchmarkLabel} ${benchmark}${over ? ` +${over}` : ''}`;
-  return `♞ CHESSMATIC ${puzzleName} ${blocks}`;
+  return [
+    `♞ Chessmatic · ${puzzleName}`,
+    `${spend}/${benchmark} pts · ${roundsLabel(roundsUsed(run))}`,
+    battleTimeline(run),
+  ].join('\n');
 }

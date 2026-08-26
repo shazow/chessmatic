@@ -5,6 +5,12 @@ Day by day history of consumer-facing changes.
 (Keep descriptions short and factual, point form, no fluff or editorializing.
 Update since commit when this file was last updated.)
 
+## 2026-08-26
+
+- Counted rounds to win as part of scoring: shown in the win verdict, and best results now break cost ties by fewer rounds.
+- Added a Share button on wins that copies a spoiler-free Wordle-style summary: score vs par, rounds, and a per-round battle timeline (🟩 capture, 🟥 loss, 🟧 trade, ⬜ quiet).
+- Included the puzzle link in shared results for daily, random, and custom puzzles.
+
 ## 2026-08-25
 
 - Ended battles early with a repetition loss when the position repeats.

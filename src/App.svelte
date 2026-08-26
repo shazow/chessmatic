@@ -31,10 +31,18 @@
     GLYPH,
     PIECE_NAME,
     fileOf,
+    resultShareText,
+    roundsLabel,
+    roundsUsed,
     squareName,
     toRoman,
     verdictFor,
   } from './lib/ui';
+
+  interface BestResult {
+    pts: number;
+    rounds?: number;
+  }
 
   interface OfficialAppPuzzle extends Puzzle {
     kind: 'official';
@@ -84,7 +92,7 @@
   let selectedType = $state<PieceType | null>(null);
   let mode = $state<GameMode>('place');
   let playing = $state(false);
-  let progress = $state<Record<string, number>>(readProgress());
+  let progress = $state<Record<string, BestResult>>(readProgress());
   let lastRun = $state<Simulation | null>(null);
   let cursor = $state(0);
   let maxSeen = $state(0);
@@ -94,6 +102,8 @@
   let shareCopiedTimer: number | null = null;
   let linkCopied = $state(false);
   let linkCopiedTimer: number | null = null;
+  let resultCopied = $state(false);
+  let resultCopiedTimer: number | null = null;
   let threatFor = $state<string | null>(null);
   let spoilerArmed = $state(false);
   let shareUrl = $state('');
@@ -234,7 +244,7 @@
         const label = currentPuzzle.kind === 'shared' ? 'target' : 'par';
         entries.push({
           kind: 'note',
-          html: `<span class="result won"><b>Position won — ${spend} pts · ${label} ${benchmark} · ${scoreVerdict}</b> ${verdict}</span>`,
+          html: `<span class="result won"><b>Position won — ${spend} pts · ${label} ${benchmark} · ${roundsLabel(roundsUsed(lastRun))} · ${scoreVerdict}</b> ${verdict}</span>`,
         });
       } else {
         const hint = lastRun.stalemate
@@ -254,15 +264,22 @@
     return `${fileOf(deployment[0])}–${fileOf(deployment[1])}`;
   }
 
-  function readProgress(): Record<string, number> {
+  function readProgress(): Record<string, BestResult> {
     try {
       const raw = localStorage.getItem('puzzleProgress');
       if (!raw) return {};
       const parsed = JSON.parse(raw) as unknown;
       if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
-      const clean: Record<string, number> = {};
+      const validScore = (value: unknown): value is number => typeof value === 'number'
+        && Number.isInteger(value) && value > 0;
+      const clean: Record<string, BestResult> = {};
       for (const [id, best] of Object.entries(parsed)) {
-        if (typeof best === 'number' && Number.isInteger(best) && best > 0) clean[id] = best;
+        if (validScore(best)) {
+          clean[id] = { pts: best };
+        } else if (best && typeof best === 'object' && validScore((best as BestResult).pts)) {
+          const { pts, rounds } = best as BestResult;
+          clean[id] = validScore(rounds) ? { pts, rounds } : { pts };
+        }
       }
       return clean;
     } catch {
@@ -270,10 +287,11 @@
     }
   }
 
-  function recordBest(puzzleId: string, cost: number): void {
+  function recordBest(puzzleId: string, pts: number, rounds: number): void {
     const previous = progress[puzzleId];
-    if (previous !== undefined && previous <= cost) return;
-    progress[puzzleId] = cost;
+    if (previous !== undefined && (previous.pts < pts
+      || (previous.pts === pts && previous.rounds !== undefined && previous.rounds <= rounds))) return;
+    progress[puzzleId] = { pts, rounds };
     try {
       localStorage.setItem('puzzleProgress', JSON.stringify(progress));
     } catch {
@@ -613,7 +631,7 @@
     updateMode();
     if (lastRun && cursor >= lastRun.events.length
         && lastRun.result === 'win' && currentPuzzle.kind === 'official') {
-      recordBest(currentPuzzle.id, spend);
+      recordBest(currentPuzzle.id, spend, roundsUsed(lastRun));
     }
   }
 
@@ -823,6 +841,31 @@
     }
   }
 
+  function shareResultText(): string {
+    if (!lastRun) return '';
+    const puzzle = currentPuzzle;
+    const shareName = puzzle.kind === 'daily' ? `Daily ${puzzle.seed}` : puzzle.name;
+    const lines = [resultShareText(shareName, spend, benchmarkCost(puzzle), lastRun)];
+    if (puzzle.kind === 'shared') lines.push(sharedPuzzleUrl(location, puzzle.shareCode));
+    else if (puzzle.kind === 'daily') lines.push(hashRouteUrl(location, dailyPuzzleHash()));
+    else if (puzzle.kind === 'random') lines.push(hashRouteUrl(location, randomPuzzleHash(puzzle.seed)));
+    return lines.join('\n');
+  }
+
+  async function shareResult(): Promise<void> {
+    if (!lastRun || lastRun.result !== 'win') return;
+    if (!(await copyText(shareResultText()))) {
+      messageHtml = 'The result could not be copied to the clipboard.';
+      return;
+    }
+    resultCopied = true;
+    if (resultCopiedTimer !== null) clearTimeout(resultCopiedTimer);
+    resultCopiedTimer = window.setTimeout(() => {
+      resultCopied = false;
+      resultCopiedTimer = null;
+    }, 1600);
+  }
+
   function nextPuzzle(): void {
     selectPuzzle(Math.min(currentIndex + 1, officialPuzzleCount - 1));
   }
@@ -881,6 +924,7 @@
       stopTimer();
       if (shareCopiedTimer !== null) clearTimeout(shareCopiedTimer);
       if (linkCopiedTimer !== null) clearTimeout(linkCopiedTimer);
+      if (resultCopiedTimer !== null) clearTimeout(resultCopiedTimer);
     };
   });
 </script>
@@ -912,10 +956,10 @@
           type="button"
           aria-pressed={index === currentIndex}
           title={best !== undefined
-            ? `Solved — best ${best} pts`
+            ? `Solved — best ${best.pts} pts${best.rounds !== undefined ? ` · ${roundsLabel(best.rounds)}` : ''}`
             : puzzle.id === nextPuzzleId ? 'Start here' : undefined}
           onclick={() => selectPuzzle(index)}
-        >{toRoman(index + 1)}{#if best !== undefined}<span class="best">{best}</span>{/if}</button>
+        >{toRoman(index + 1)}{#if best !== undefined}<span class="best">{best.pts}</span>{/if}</button>
       {/each}
       <a
         class="chip"
@@ -1031,6 +1075,16 @@
             disabled={!placed.length && !lastRun}
             onclick={togglePlay}
           >{playing ? 'Pause' : 'Play'}</button>
+        {/if}
+        {#if outcome === 'win'}
+          <button
+            class="btn ghost"
+            class:share-copied={resultCopied}
+            type="button"
+            aria-label="Share result"
+            title="Copy a spoiler-free result summary"
+            onclick={() => void shareResult()}
+          >{resultCopied ? '✓ Copied' : 'Share'}</button>
         {/if}
         {#if outcome === 'win' && canNext}
           <button class="btn primary" type="button" onclick={nextPuzzle}>🏆 Next Puzzle</button>
