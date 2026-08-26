@@ -6,6 +6,7 @@
   --paper: #f4ecd9;
   --ink: #2b2b26;
   --brass: #c9a227;
+  --teal: #4fb3a5;
   --signal: #b3402f;
   --white-pc: #f7f3e8;
   --black-pc: #26221c;
@@ -527,6 +528,21 @@ h1 .brand-name {
 .btn.primary:not(:disabled):active {
   transform: translateY(1px);
   box-shadow: inset 0 0 0 #8a6d12;
+}
+
+.btn.teal {
+  background: var(--teal);
+  color: #0d2924;
+  box-shadow: inset 0 -2px 0 #2c7268;
+}
+
+.btn.teal:not(:disabled):hover {
+  filter: brightness(1.07);
+}
+
+.btn.teal:not(:disabled):active {
+  transform: translateY(1px);
+  box-shadow: inset 0 0 0 #2c7268;
 }
 
 .btn.ghost {
