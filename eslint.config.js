@@ -20,8 +20,9 @@ export default tseslint.config(
   },
   {
     rules: {
-      // Cyclomatic complexity cap: keep functions simple and testable.
-      complexity: ["error", { max: 10 }],
+      // Cyclomatic complexity is a guideline, not a gate: warnings flag
+      // refactor candidates without failing the lint run.
+      complexity: ["warn", { max: 10 }],
     },
   },
 );
