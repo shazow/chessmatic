@@ -93,25 +93,32 @@ export function insertPuzzle(puzzles: Puzzle[], puzzle: Puzzle, index = puzzles.
   puzzles.splice(index, 0, puzzle);
 }
 
+function parseIndexValue(value: string): number {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error('--index must be a non-negative whole number.');
+  }
+  return parsed;
+}
+
 export function parseArguments(args: string[]): AddOptions {
   let id: string | undefined;
   let insertionIndex: number | undefined;
   let dataPath = './chessmatic-puzzles.json';
   let input: string | undefined;
+  const setters: Record<string, (value: string) => void> = {
+    '--id': (value) => { id = value; },
+    '--data': (value) => { dataPath = value; },
+    '--index': (value) => { insertionIndex = parseIndexValue(value); },
+  };
 
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
-    if (argument === '--id' || argument === '--data' || argument === '--index') {
+    const setter = setters[argument];
+    if (setter) {
       const value = args[index + 1];
       if (!value || value.startsWith('--')) throw new Error(`${argument} requires a value.`);
-      if (argument === '--id') id = value;
-      else if (argument === '--data') dataPath = value;
-      else {
-        insertionIndex = Number(value);
-        if (!Number.isInteger(insertionIndex) || insertionIndex < 0) {
-          throw new Error('--index must be a non-negative whole number.');
-        }
-      }
+      setter(value);
       index += 1;
     } else if (argument.startsWith('--')) {
       throw new Error(`Unknown option: ${argument}`);

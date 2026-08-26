@@ -15,7 +15,7 @@
 </script>
 
 <div class:enemy-tray={enemy} class="tray" role="group" aria-label={enemy ? 'Enemy pieces' : 'Pieces for hire'}>
-  {#each PIECE_TYPES as type}
+  {#each PIECE_TYPES as type (type)}
     <button
       class="slot"
       type="button"

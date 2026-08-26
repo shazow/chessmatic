@@ -66,8 +66,8 @@
 
 <div class:won={outcome === 'win'} class:lost={outcome === 'loss'} class="board-shell">
   <div class="board" role="grid" aria-label={`Battle board, ${cols} files by ${rows} ranks`}>
-    {#each ranks as row}
-      {#each files as col}
+    {#each ranks as row (row)}
+      {#each files as col (col)}
         {@const piece = pieceAt(col, row)}
         {@const cellKey = key(col, row)}
         <button
@@ -120,6 +120,6 @@
     {/each}
   </div>
   <div class="files" aria-hidden="true">
-    {#each files as col}<span>{'abcdefgh'[col]}</span>{/each}
+    {#each files as col (col)}<span>{'abcdefgh'[col]}</span>{/each}
   </div>
 </div>

@@ -46,6 +46,23 @@ export function createEngine(data: PuzzleData): Engine {
     return moves;
   }
 
+  function pawnMoves(piece: BattlePiece, pieces: readonly BattlePiece[]): LegalMove[] {
+    const moves: LegalMove[] = [];
+    const forwardCol = piece.col + directions[piece.side];
+    if (inBounds(forwardCol, piece.row) && !at(pieces, forwardCol, piece.row)) {
+      moves.push({ c: forwardCol, r: piece.row, cap: null });
+    }
+    for (const dr of [-1, 1]) {
+      const row = piece.row + dr;
+      if (!inBounds(forwardCol, row)) continue;
+      const occupant = at(pieces, forwardCol, row);
+      if (occupant && occupant.side !== piece.side) {
+        moves.push({ c: forwardCol, r: row, cap: occupant });
+      }
+    }
+    return moves;
+  }
+
   function legalMoves(piece: BattlePiece, pieces: readonly BattlePiece[]): LegalMove[] {
     const moves: LegalMove[] = [];
     const push = (col: number, row: number) => {
@@ -54,25 +71,10 @@ export function createEngine(data: PuzzleData): Engine {
       if (occupant?.side === piece.side) return;
       moves.push({ c: col, r: row, cap: occupant ?? null });
     };
-    const direction = directions[piece.side];
 
     switch (piece.type) {
-      case 'P': {
-        if (inBounds(piece.col + direction, piece.row)
-            && !at(pieces, piece.col + direction, piece.row)) {
-          moves.push({ c: piece.col + direction, r: piece.row, cap: null });
-        }
-        for (const dr of [-1, 1]) {
-          const col = piece.col + direction;
-          const row = piece.row + dr;
-          if (!inBounds(col, row)) continue;
-          const occupant = at(pieces, col, row);
-          if (occupant && occupant.side !== piece.side) {
-            moves.push({ c: col, r: row, cap: occupant });
-          }
-        }
-        return moves;
-      }
+      case 'P':
+        return pawnMoves(piece, pieces);
       case 'N':
         for (const [dc, dr] of [[1, 2], [2, 1], [2, -1], [1, -2], [-1, -2], [-2, -1], [-2, 1], [-1, 2]]) {
           push(piece.col + dc, piece.row + dr);
@@ -101,22 +103,30 @@ export function createEngine(data: PuzzleData): Engine {
       case 'N':
         return (Math.abs(dc) === 1 && Math.abs(dr) === 2)
           || (Math.abs(dc) === 2 && Math.abs(dr) === 1);
-      default: {
-        const diagonal = Math.abs(dc) === Math.abs(dr) && dc !== 0;
-        const orthogonal = (dc === 0) !== (dr === 0);
-        const validDirection = piece.type === 'B'
-          ? diagonal
-          : piece.type === 'R' ? orthogonal : diagonal || orthogonal;
-        if (!validDirection) return false;
-        const stepCol = Math.sign(dc);
-        const stepRow = Math.sign(dr);
-        const distance = Math.max(Math.abs(dc), Math.abs(dr));
-        for (let step = 1; step < distance; step += 1) {
-          if (occupied(piece.col + stepCol * step, piece.row + stepRow * step)) return false;
-        }
-        return true;
-      }
+      default:
+        return sliderAttacks(piece, dc, dr, occupied);
     }
+  }
+
+  function sliderAttacks(
+    piece: BattlePiece,
+    dc: number,
+    dr: number,
+    occupied: (col: number, row: number) => boolean,
+  ): boolean {
+    const diagonal = Math.abs(dc) === Math.abs(dr) && dc !== 0;
+    const orthogonal = (dc === 0) !== (dr === 0);
+    const validDirection = piece.type === 'B'
+      ? diagonal
+      : piece.type === 'R' ? orthogonal : diagonal || orthogonal;
+    if (!validDirection) return false;
+    const stepCol = Math.sign(dc);
+    const stepRow = Math.sign(dr);
+    const distance = Math.max(Math.abs(dc), Math.abs(dr));
+    for (let step = 1; step < distance; step += 1) {
+      if (occupied(piece.col + stepCol * step, piece.row + stepRow * step)) return false;
+    }
+    return true;
   }
 
   function unsafeSquare(
@@ -133,21 +143,17 @@ export function createEngine(data: PuzzleData): Engine {
         && other.col === candidateCol
         && other.row === candidateRow
     )) || (candidateCol === col && candidateRow === row);
-    let attackedByExpensivePiece = false;
+    const considered = (other: BattlePiece) => other.alive && other !== piece && other !== ignoredPiece;
 
-    for (const enemy of pieces) {
-      if (!enemy.alive || enemy === piece || enemy === ignoredPiece || enemy.side === piece.side) continue;
-      if (!attacksSquare(enemy, col, row, occupied)) continue;
-      if (cost[enemy.type] <= cost[piece.type]) return true;
-      attackedByExpensivePiece = true;
-    }
-    if (!attackedByExpensivePiece) return false;
-
-    for (const ally of pieces) {
-      if (!ally.alive || ally === piece || ally === ignoredPiece || ally.side !== piece.side) continue;
-      if (attacksSquare(ally, col, row, occupied)) return false;
-    }
-    return true;
+    const attackers = pieces.filter((enemy) => considered(enemy)
+      && enemy.side !== piece.side
+      && attacksSquare(enemy, col, row, occupied));
+    if (!attackers.length) return false;
+    if (attackers.some((enemy) => cost[enemy.type] <= cost[piece.type])) return true;
+    // Only pricier attackers remain: the square is safe if any ally defends it.
+    return !pieces.some((ally) => considered(ally)
+      && ally.side === piece.side
+      && attacksSquare(ally, col, row, occupied));
   }
 
   function nearestEnemyDistance(
@@ -297,33 +303,53 @@ export function createEngine(data: PuzzleData): Engine {
     const seenPositions = new Set([positionKey()]);
 
     for (let round = 0; round < roundLimit; round += 1) {
-      let actions = 0;
-      for (const pieceId of initiative) {
-        const piece = pieces.find((candidate) => candidate.id === pieceId);
-        if (!piece?.alive) continue;
-        const event = actPiece(piece, pieces);
-        if (event) {
-          actions += 1;
-          events.push({ round, side: piece.side, ev: event });
-        } else {
-          events.push({
-            round,
-            side: piece.side,
-            ev: null,
-            pid: piece.id,
-            ptype: piece.type,
-            at: { c: piece.col, r: piece.row },
-          });
-        }
-        const status = battleStatus(pieces);
-        if (status) return { result: status, events, initialPieces };
-      }
+      const { status, actions } = playRound(round, initiative, pieces, events);
+      if (status) return { result: status, events, initialPieces };
       if (!actions) return { result: 'loss', events, initialPieces, stalemate: true };
       const key = positionKey();
       if (seenPositions.has(key)) return { result: 'loss', events, initialPieces, repetition: true };
       seenPositions.add(key);
     }
     return { result: 'loss', events, initialPieces, timeout: true };
+  }
+
+  function playRound(
+    round: number,
+    initiative: readonly string[],
+    pieces: readonly BattlePiece[],
+    events: SimulationStep[],
+  ): { status: 'win' | 'loss' | null; actions: number } {
+    let actions = 0;
+    for (const pieceId of initiative) {
+      const piece = pieces.find((candidate) => candidate.id === pieceId);
+      if (!piece?.alive) continue;
+      if (recordAction(round, piece, pieces, events)) actions += 1;
+      const status = battleStatus(pieces);
+      if (status) return { status, actions };
+    }
+    return { status: null, actions };
+  }
+
+  function recordAction(
+    round: number,
+    piece: BattlePiece,
+    pieces: readonly BattlePiece[],
+    events: SimulationStep[],
+  ): boolean {
+    const event = actPiece(piece, pieces);
+    if (event) {
+      events.push({ round, side: piece.side, ev: event });
+      return true;
+    }
+    events.push({
+      round,
+      side: piece.side,
+      ev: null,
+      pid: piece.id,
+      ptype: piece.type,
+      at: { c: piece.col, r: piece.row },
+    });
+    return false;
   }
 
   function threatSquares(piece: BattlePiece, pieces: readonly BattlePiece[]): Set<string> {

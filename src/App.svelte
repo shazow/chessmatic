@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
+  import { SvelteSet } from 'svelte/reactivity';
   import logoUrl from '../art/icon-256px.png';
   import rawData from '../chessmatic-puzzles.json';
   import Board, { type DragSource } from './lib/components/Board.svelte';
@@ -205,15 +206,15 @@
     const visible = Math.min(maxSeen, lastRun.events.length);
     let lastRound = -1;
     let moveNumber = 1;
-    const loggedPins = new Set<string>();
+    const loggedPins: string[] = [];
     lastRun.events.slice(0, visible).forEach((step, index) => {
       if (step.round !== lastRound) {
         lastRound = step.round;
         entries.push({ kind: 'round', round: step.round });
       }
       if (!step.ev) {
-        if (!loggedPins.has(step.pid)) {
-          loggedPins.add(step.pid);
+        if (!loggedPins.includes(step.pid)) {
+          loggedPins.push(step.pid);
           entries.push({
             kind: 'pin',
             side: step.side,
@@ -405,24 +406,23 @@
     selectedType = selectedType === type ? null : type;
   }
 
-  function onCell(col: number, row: number, piece: BattlePiece | undefined): void {
-    if (suppressClick || playing) return;
-    if (piece) {
-      const own = (piece.side === 'player' && mode === 'place')
-        || (piece.side === 'enemy' && editing);
-      if (own && !selectedType) {
-        placementPieces().splice(Number(piece.id.slice(1)), 1);
-        if (!editing) invalidateRun();
-        threatFor = null;
-        resetMessageWhenEmpty();
-        return;
-      }
-      threatFor = threatFor === piece.id ? null : piece.id;
-      if (piece.side === 'enemy') {
-        messageHtml = `Red hatching = every square the ${PIECE_NAME[piece.type]} on ${squareName(piece.col, piece.row)} can strike right now. It will refuse squares defended by cheaper pieces.`;
-      }
+  function onPieceTap(piece: BattlePiece): void {
+    const own = (piece.side === 'player' && mode === 'place')
+      || (piece.side === 'enemy' && editing);
+    if (own && !selectedType) {
+      placementPieces().splice(Number(piece.id.slice(1)), 1);
+      if (!editing) invalidateRun();
+      threatFor = null;
+      resetMessageWhenEmpty();
       return;
     }
+    threatFor = threatFor === piece.id ? null : piece.id;
+    if (piece.side === 'enemy') {
+      messageHtml = `Red hatching = every square the ${PIECE_NAME[piece.type]} on ${squareName(piece.col, piece.row)} can strike right now. It will refuse squares defended by cheaper pieces.`;
+    }
+  }
+
+  function onEmptyTap(col: number, row: number): void {
     threatFor = null;
     if ((mode !== 'place' && !editing) || !selectedType) return;
     if (col < deployment[0] || col > deployment[1]) {
@@ -433,8 +433,14 @@
     if (!editing) invalidateRun();
   }
 
+  function onCell(col: number, row: number, piece: BattlePiece | undefined): void {
+    if (suppressClick || playing) return;
+    if (piece) onPieceTap(piece);
+    else onEmptyTap(col, row);
+  }
+
   function validDropCells(source: DragSource): Set<string> {
-    const valid = new Set<string>();
+    const valid = new SvelteSet<string>();
     const prefix = editing ? 'e' : 'p';
     for (let col = deployment[0]; col <= deployment[1]; col += 1) {
       for (let row = 0; row < data.board.rows; row += 1) {
@@ -450,6 +456,36 @@
 
   function cellAt(event: PointerEvent): HTMLButtonElement | null {
     return document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLButtonElement>('.cell') ?? null;
+  }
+
+  function applyDrop(source: DragSource, col: number, row: number): void {
+    if (source.kind === 'tray') placementPieces().push({ type: source.type, col, row });
+    else {
+      const target = placementPieces()[source.index];
+      if (target) {
+        target.col = col;
+        target.row = row;
+      }
+    }
+    if (!editing) invalidateRun();
+  }
+
+  function finishDrop(cell: HTMLButtonElement | null, source: DragSource, valid: Set<string>): void {
+    if (cell) {
+      const col = Number(cell.dataset.c);
+      const row = Number(cell.dataset.r);
+      if (valid.has(`${col},${row}`)) {
+        applyDrop(source, col, row);
+      } else if (col < deployment[0] || col > deployment[1]) {
+        messageHtml = `Deploy on files ${deployLabel()} only — piece snapped back.`;
+      } else {
+        messageHtml = 'That square is taken — piece snapped back.';
+      }
+    } else if (source.kind === 'board') {
+      placementPieces().splice(source.index, 1);
+      if (!editing) invalidateRun();
+      messageHtml = 'Piece returned to the box.';
+    }
   }
 
   function startDrag(event: PointerEvent, source: DragSource): void {
@@ -493,30 +529,7 @@
       suppressClick = true;
       setTimeout(() => { suppressClick = false; }, 0);
       const cell = upEvent.type === 'pointercancel' ? null : cellAt(upEvent);
-      if (cell) {
-        const col = Number(cell.dataset.c);
-        const row = Number(cell.dataset.r);
-        const cellKey = `${col},${row}`;
-        if (state.valid.has(cellKey)) {
-          if (source.kind === 'tray') placementPieces().push({ type: source.type, col, row });
-          else {
-            const target = placementPieces()[source.index];
-            if (target) {
-              target.col = col;
-              target.row = row;
-            }
-          }
-          if (!editing) invalidateRun();
-        } else if (col < deployment[0] || col > deployment[1]) {
-          messageHtml = `Deploy on files ${deployLabel()} only — piece snapped back.`;
-        } else {
-          messageHtml = 'That square is taken — piece snapped back.';
-        }
-      } else if (source.kind === 'board') {
-        placementPieces().splice(source.index, 1);
-        if (!editing) invalidateRun();
-        messageHtml = 'Piece returned to the box.';
-      }
+      finishDrop(cell, source, state.valid);
       threatFor = null;
       drag = null;
       resetMessageWhenEmpty();
@@ -903,7 +916,7 @@
 
   {#if !editing}
     <div class="chips" role="group" aria-label="Choose a puzzle">
-      {#each puzzles.slice(0, officialPuzzleCount) as puzzle, index}
+      {#each puzzles.slice(0, officialPuzzleCount) as puzzle, index (puzzle.id)}
         {@const best = progress[puzzle.id]}
         <button
           class:solved={best !== undefined}
@@ -1061,9 +1074,11 @@
     >
       <span class="lbl">Scoresheet</span>
       <div class="moves">
+        <!-- eslint-disable-next-line svelte/no-at-html-tags -- messageHtml only ever holds app-authored strings, never user input -->
         {#if messageHtml}{@html messageHtml}{/if}
-        {#each battleLog as entry}
+        {#each battleLog as entry, entryIndex (entryIndex)}
           {#if entry.kind === 'note'}
+            <!-- eslint-disable-next-line svelte/no-at-html-tags -- log notes are built from app-authored constants only -->
             {@html entry.html}<br>
           {:else if entry.kind === 'round'}
             <span class="lbl">— round {entry.round + 1} —</span><br>
