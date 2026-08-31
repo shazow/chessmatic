@@ -2,7 +2,10 @@ import type { PieceType } from './types';
 
 export const PIECE_TYPES: PieceType[] = ['P', 'N', 'B', 'R', 'Q'];
 export const GLYPH: Record<PieceType, string> = {
-  P: '♟',
+  // U+FE0E forces text presentation: U+265F is the only chess glyph that is
+  // also an emoji, so iOS renders it as the black-pawn color emoji otherwise,
+  // ignoring the CSS color that makes enemy pieces white.
+  P: '♟︎',
   N: '♞',
   B: '♝',
   R: '♜',
