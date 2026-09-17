@@ -14,6 +14,7 @@
     sharedPuzzleHash,
     sharedPuzzleUrl,
   } from './lib/hash-router';
+  import { trackRoute } from './lib/analytics';
   import { decodePuzzle, encodePuzzle } from './lib/puzzle-link';
   import { dailyPuzzleSeed, generatePuzzle, randomPuzzleSeed } from './lib/random-puzzle';
   import type {
@@ -884,6 +885,7 @@
       currentIndex = 0;
       messageHtml = 'The puzzle URL is invalid, so the first club puzzle was loaded instead.';
     }
+    trackRoute(route);
   }
 
   onMount(() => {
