@@ -15,24 +15,9 @@ export function initAnalytics(): void {
   });
 }
 
-// Seeds and shared puzzle codes are unique per-link, so they are left out of
-// the reported path to keep puzzles of a kind aggregated together.
-export function routePath(route: HashRoute): string {
-  switch (route.kind) {
-    case 'home':
-      return '/';
-    case 'shared':
-      return '/puzzle';
-    case 'daily':
-      return '/daily';
-    case 'random':
-      return '/random';
-    case 'invalid':
-      return '/invalid';
-  }
-}
-
+// The route kind is the whole path: seeds and shared puzzle codes are unique
+// per-link, so reporting them would make a separate path out of every visit.
 export function trackRoute(route: HashRoute): void {
   if (!Counterscale.isInitialized()) return;
-  Counterscale.trackPageview({ url: routePath(route) });
+  Counterscale.trackPageview({ url: `/${route.kind}` });
 }
