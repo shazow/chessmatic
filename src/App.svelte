@@ -3,6 +3,7 @@
   import { SvelteSet } from 'svelte/reactivity';
   import logoUrl from '../art/icon-256px.png';
   import rawData from '../chessmatic-puzzles.json';
+  import { trackRoute } from './lib/analytics';
   import Board, { type DragSource } from './lib/components/Board.svelte';
   import PieceTray from './lib/components/PieceTray.svelte';
   import { createEngine } from './lib/engine';
@@ -884,6 +885,7 @@
       currentIndex = 0;
       messageHtml = 'The puzzle URL is invalid, so the first club puzzle was loaded instead.';
     }
+    trackRoute(route);
   }
 
   onMount(() => {
