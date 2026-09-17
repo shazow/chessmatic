@@ -35,6 +35,6 @@
     "vitest": "4.1.11"
   },
   "dependencies": {
-    "@counterscale/tracker": "^3.4.1"
+    "@counterscale/tracker": "3.4.1"
   }
 }

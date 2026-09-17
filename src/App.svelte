@@ -3,6 +3,7 @@
   import { SvelteSet } from 'svelte/reactivity';
   import logoUrl from '../art/icon-256px.png';
   import rawData from '../chessmatic-puzzles.json';
+  import { trackRoute } from './lib/analytics';
   import Board, { type DragSource } from './lib/components/Board.svelte';
   import PieceTray from './lib/components/PieceTray.svelte';
   import { createEngine } from './lib/engine';
@@ -14,7 +15,6 @@
     sharedPuzzleHash,
     sharedPuzzleUrl,
   } from './lib/hash-router';
-  import { trackRoute } from './lib/analytics';
   import { decodePuzzle, encodePuzzle } from './lib/puzzle-link';
   import { dailyPuzzleSeed, generatePuzzle, randomPuzzleSeed } from './lib/random-puzzle';
   import type {
